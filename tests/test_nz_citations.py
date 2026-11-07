@@ -138,6 +138,11 @@ def test_year_less_name_needs_exactly_one_act_in_force():
         ("rule 5.17", HIGH_COURT_RULES, ["5.17"]),
         ("HCR r 5.17", HIGH_COURT_RULES, ["5.17"]),
         ("High Court Rules 2016, r 5.17", HIGH_COURT_RULES, ["5.17"]),
+        # Naming the current instrument cannot turn its predecessor's number
+        # into a current rule: the published-corpus audit found this bypass.
+        ("High Court Rules, r 136", None, []),
+        ("r 187(3)(a) of the High Court Rules", None, []),
+        ("HCR rr 5.17 and 136", HIGH_COURT_RULES, ["5.17"]),
         ("r 5.17 of the High Court Rules 2016", HIGH_COURT_RULES, ["5.17"]),
         ("DCR r 5.17", DISTRICT_COURT_RULES, ["5.17"]),
         ("rr 5.17–5.20", HIGH_COURT_RULES, ["5.17", "5.20"]),
@@ -160,7 +165,7 @@ def test_year_less_name_needs_exactly_one_act_in_force():
         ("r 5.1 of the then NZX Listing Rules", None, []),
         ("Supreme Court Rules 2009 (UK), r 15.1.", None, []),
         ("r 43 of the Court of Appeal (Civil) Rules", None, []),
-        # "the Rules" names nothing, and a named rule keeps any number it has.
+        # "the Rules" names nothing; conduct rules need not have dotted numbers.
         ("Rule 32.2 of the Rules provides for a freezing order", HIGH_COURT_RULES, ["32.2"]),
         ("High Court Rules, r 2.3(4).", HIGH_COURT_RULES, ["2.3(4)"]),
         ("r 13 of the Conduct and Client Care Rules", CONDUCT_RULES, ["13"]),

@@ -79,6 +79,12 @@ not just a count of resolved citations.
 
 ## Consume from Git
 
+`legal_corpus.nz_skill` packages NZ-only research instructions (`prose()`) and
+six tool contracts (`TOOLS`) without importing DuckDB/LanceDB or a snapshot.
+Consumers adapt these to their tool dispatcher and enforce their own permissions,
+read history, model charges and checker display. There is no NCA comparison canon
+tool in this skill. The Markdown resource is included in the wheel.
+
 Consumers pin **both** packages to the same published commit using uv git sources
 with `subdirectory = "packages/legal-core"` / `"packages/legal-corpus"`. During
 development, uv editable path sources can point at this checkout. Do not deploy a
