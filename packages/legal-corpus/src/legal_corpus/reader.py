@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 
 from legal_core.citations import base_section, names_rules
+from legal_core.nz import HIGH_COURT_RULES
 
 from legal_corpus.constants import (
     DEFINITION_CHARS,
@@ -271,11 +272,29 @@ def read_case(
     return ReadResult("\n".join(lines), returned)
 
 
+def _not_held(statute_id: str, section: str) -> str:
+    """
+    What to tell the model about a provision we do not hold.
+
+    An undotted High Court rule gets an explanation, because a bare "not found" sent a
+    model on 55 tool calls looking for it (debug/2026-11-07-agent-hunting-old-rules.md).
+    """
+    note = f"No {'r' if names_rules(statute_id) else 's'} {section} of {statute_id} in the corpus."
+    if statute_id == HIGH_COURT_RULES and "." not in section:
+        note += (
+            " Every current rule is numbered part.rule (e.g. r 8.4), so this is probably a"
+            " pre-2016 number. The earlier High Court Rules are not held, so further searches"
+            " will not find its text. Tell the user that, and find the current rule by its"
+            " subject rather than by its old number."
+        )
+    return note
+
+
 def read_provision(corpus: Corpus, statute_id: str, section: str) -> ReadResult:
     unit = corpus.provision(statute_id, section)
     statute = corpus.statute(statute_id)
     if unit is None or statute is None:
-        return ReadResult(f"No section {section} of {statute_id} in the corpus.")
+        return ReadResult(_not_held(statute_id, section))
     title = (
         statute["title"] if statute["title"] == statute_id else f"{statute['title']}, {statute_id}"
     )

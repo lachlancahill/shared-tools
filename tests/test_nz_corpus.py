@@ -31,6 +31,13 @@ def test_a_named_rule_the_instrument_cannot_have_is_flagged_not_missed(nz_corpus
     assert [(c.status, c.badges) for c in checked] == [("unverified", ["not in the corpus"])]
 
 
+def test_an_old_rule_number_tells_the_model_it_is_not_held_rather_than_just_missing(nz_corpus):
+    old = reader.read(nz_corpus, "HCR r 138").text
+    assert "No r 138 of" in old and "earlier High Court Rules are not held" in old
+    # A dotted number could be a real rule we lack, so it gets no such explanation.
+    assert "not held" not in reader.read(nz_corpus, "HCR r 8.99").text
+
+
 def test_mixed_corpora_remain_distinct_and_revoked_rules_are_badged(corpus, nz_corpus):
     answer = f"Oakes {OAKES} at para 69. Example {NZ_CASE} at [2]. HCR r 8.7."
     checked = verify.verify(corpus, answer, {f"{OAKES}#69", f"{NZ_CASE}#2"}, nz=nz_corpus)

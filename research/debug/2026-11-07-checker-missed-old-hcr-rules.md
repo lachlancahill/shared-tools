@@ -30,8 +30,10 @@ impossible numbers (`legal-assistant`'s `ingest.graph`), which also covers the `
 path behind the audit's last 21 links. Four checker regressions assert the warning;
 the three `r` forms fail on the released parser and pass with this change.
 
-**Local and unpublished.** It must ship with, or after, the ingest filter: without
-it, a rebuild on this parser would put about 2,300 old-number links back in the graph.
+Published in `de97f16`, together with the ingest filter (`legal-assistant` `5a7a946`).
+The two must stay together: this parser without that filter would put about 2,300
+old-number links back in the graph. The live check on testing then marked `r 138`
+"not in the corpus".
 
 ## Still open
 `r 19.5(1) High Court Rules, s 343 Property Law Act 2007` attaches `s 343` to the

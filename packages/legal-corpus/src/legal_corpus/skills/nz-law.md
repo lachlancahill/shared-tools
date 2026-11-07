@@ -15,6 +15,10 @@ the version it holds; it is not a guarantee of the law as at today's date.
 - **Read before relying:** `nz_read` the paragraphs and their surroundings,
   including their footnotes. Cite NZ form: *Hansen v R* [2007] NZSC 7 at [104];
   Evidence Act 2006, s 8. Never invent a pinpoint or quoted words.
+- **Stop when the corpus has answered.** If two or three differently worded attempts
+  do not find something, tell the user what you tried and what is not held. Do not
+  keep varying the same search. Look outside the held sources only if the user asks,
+  and say that text from elsewhere is outside the citation checks.
 - Distinguish the court's reasoning from submissions, the court below, separate
   reasons and dissents. The reader labels reasons where it can identify them;
   where it cannot, say so rather than assume a majority.
@@ -40,6 +44,11 @@ the version it holds; it is not a guarantee of the law as at today's date.
 - `nz_read` and `nz_cases_citing_provision` accept `HCR r 5.17`, `DCR r 5.17`, or
   a bare `r 5.17` (the High Court Rules). Name any other instrument explicitly,
   especially the conduct rules, whose numbering overlaps the court rules.
+- Every current HCR rule is numbered part.rule. An undotted number such as r 138 is
+  from before 2016. The earlier rules are not held, and an old number does not tell
+  you the current one: say so, then find the current rule by its subject.
+- The reader returns a provision as flat lines. When quoting one, show its structure
+  as a nested Markdown list, with (1), (a) and (i) at their own levels.
 - Rules change and judgments do not. A revoked rule reads as its revocation note
   and is marked revoked. Never present it as current procedure. The held HCR
   text records the 1 January 2026 revocation of rr 7.1–7.3A, 7.9, 7.37, 8.1,
