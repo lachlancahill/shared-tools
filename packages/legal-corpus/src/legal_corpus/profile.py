@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass, field
 
 from legal_core.citations import BUILT_IN_STATUTE_NAMES
-from legal_core.nz import HIGH_COURT_RULES, NZ_STATUTE_NAMES
+from legal_core.nz import HIGH_COURT_RULES, NZ_ANSWER_STATUTE_NAMES
 
 
 @dataclass(frozen=True)
@@ -75,7 +75,7 @@ NEW_ZEALAND = Profile(
     appellate=("NZCA",),
     pinpoint="[{n}]",
     link_prefix="/nz",
-    statute_names=NZ_STATUTE_NAMES,
+    statute_names=NZ_ANSWER_STATUTE_NAMES,
     year_less_names=True,
     spine="NZ comparison canon",
     not_held=(

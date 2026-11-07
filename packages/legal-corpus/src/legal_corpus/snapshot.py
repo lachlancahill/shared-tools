@@ -25,7 +25,7 @@ import lancedb
 import pyarrow.fs as pafs
 import pyarrow.parquet as pq
 from legal_core.citations import StatuteNames, base_section, normalise_case_name
-from legal_core.nz import year_less_names
+from legal_core.nz import newest_act_names
 from legal_core.resolver import CaseIndex
 
 from legal_corpus.profile import CANADA, Profile
@@ -134,7 +134,7 @@ class Corpus:
         statutes = self.sql("select statute_id, title from statutes")
         if profile.year_less_names:
             in_force = [t for (t,) in self.sql("select title from statutes where tier = 'A'")]
-            statutes += year_less_names(in_force)
+            statutes += newest_act_names(in_force, [title for _, title in statutes])
         self.statute_names = StatuteNames(statutes, built_in=profile.statute_names)
         self.names: dict[str, list[str]] = {}
         for case_id, name in self.sql(

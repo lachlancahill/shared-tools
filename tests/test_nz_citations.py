@@ -19,8 +19,10 @@ from legal_core.nz import (
     CONDUCT_RULES,
     DISTRICT_COURT_RULES,
     HIGH_COURT_RULES,
+    NZ_ANSWER_STATUTE_NAMES,
     NZ_STATUTE_NAMES,
     NZBORA,
+    newest_act_names,
     year_less_names,
 )
 
@@ -183,3 +185,68 @@ def test_nz_rules_resolve_by_acronym_short_name_and_a_bare_rule(nz_names, text, 
 
 def test_a_bare_rule_is_not_guessed_without_a_default(nz_names):
     assert find_rule_references(clean_text("r 5.17"), nz_names) == []
+
+
+def _answer_names() -> StatuteNames:
+    titles = ["Evidence Act 2006", "Criminal Procedure Act 2011", "Juries Act 1981"]
+    return StatuteNames([(t, t) for t in titles], built_in=NZ_ANSWER_STATUTE_NAMES)
+
+
+@pytest.mark.parametrize(
+    ("text", "statute", "sections"),
+    [
+        ("EA s 8", "Evidence Act 2006", ["8"]),
+        ("EA 2006 s 8", "Evidence Act 2006", ["8"]),
+        ("CPA ss 90, 92", "Criminal Procedure Act 2011", ["90", "92"]),
+        ("CPA 2011 ss 81, 87–89", "Criminal Procedure Act 2011", ["81", "87", "89"]),
+        ("CPA s 88(2)(a)", "Criminal Procedure Act 2011", ["88(2)(a)"]),
+    ],
+)
+def test_an_answer_can_cite_the_evidence_and_criminal_procedure_acts_short(text, statute, sections):
+    refs = find_provision_references(text, _answer_names())
+    assert [(r.statute, r.section) for r in refs] == [(statute, s) for s in sections]
+
+
+def test_judgments_do_not_read_ea_or_cpa_as_statutes():
+    """In a judgment "EA" can be a party and "CPA" another Act: the graph must not guess."""
+    names = StatuteNames([("Evidence Act 2006", "Evidence Act 2006")], built_in=NZ_STATUTE_NAMES)
+    assert find_provision_references("EA s 8", names) == []
+    assert find_provision_references("CPA s 8", names) == []
+
+
+def test_a_year_less_name_is_the_newest_act_of_that_name_when_that_act_is_in_force():
+    in_force = ["Evidence Act 1905", "Evidence Act 2006", "Education Act 1914", "Juries Act 1981"]
+    every_title = [*in_force, "Evidence Act 1908", "Education Act 1989", "Juries Act 1868"]
+    pairs = newest_act_names(in_force, every_title)
+    assert ("Evidence Act 2006", "Evidence Act") in pairs
+    assert ("Juries Act 1981", "Juries Act") in pairs
+    # The 1989 Act is repealed, and the 1914 one only looks in force.
+    assert all(short != "Education Act" for _, short in pairs)
+
+
+@pytest.mark.parametrize(
+    ("text", "sections"),
+    [
+        # A number after a singular marker's comma is prose before an ordinary word...
+        ("Juries Act 1981 s 19, 12 jurors after challenges", ["19"]),
+        ("Juries Act 1981 s 19, 120 jurors", ["19"]),
+        # ...and still a list where the sentence carries the list on or names the Act.
+        ("Juries Act 1981 s 7, 15 and 28", ["7", "15", "28"]),
+        ("Juries Act 1981 ss 19, 12 apply", ["19", "12"]),
+    ],
+)
+def test_a_singular_section_does_not_take_the_next_number_in_a_sentence(text, sections):
+    refs = find_provision_references(text, _answer_names())
+    assert [r.section for r in refs] == sections
+
+
+def test_a_singular_section_keeps_a_list_that_names_its_act_after():
+    refs = find_provision_references("s 7, 15 of the Juries Act 1981", _answer_names())
+    assert [r.section for r in refs] == ["7", "15"]
+
+
+def test_a_singular_rule_does_not_take_the_next_number_in_a_sentence():
+    text = "HCR r 9.11, 20 working days then 10; HCR rr 9.11, 9.14 apply"
+    refs = find_rule_references(text, _answer_names())
+    assert [r.section for r in refs] == ["9.11", "9.11", "9.14"]
+    assert text[refs[0].start : refs[0].end] == "r 9.11"

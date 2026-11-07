@@ -45,6 +45,9 @@ the version it holds; it is not a guarantee of the law as at today's date.
   a bare `r 5.17` (the High Court Rules). Name any other instrument explicitly,
   especially the conduct rules, whose numbering overlaps the court rules; use
   `RCCC r 13.1` for the Conduct and Client Care Rules 2008.
+- In an answer, `EA` and `CPA` mean only the Evidence Act 2006 and the Criminal
+  Procedure Act 2011, and citations are checked as those. Write any other Act's name
+  out in full, with its year the first time, or its citations go unchecked.
 - Every current HCR rule is numbered part.rule. An undotted number such as r 138 is
   from before 2016. The earlier rules are not held, and an old number does not tell
   you the current one: say so, then find the current rule by its subject.

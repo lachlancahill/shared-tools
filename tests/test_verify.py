@@ -1,6 +1,6 @@
 """The answer checker: every citation checked, and the context badges it adds."""
 
-from conftest import OAKES
+from conftest import CODE, OAKES
 from legal_corpus import verify
 
 
@@ -328,3 +328,18 @@ def test_the_mark_says_what_was_checked_and_what_was_not(corpus):
     assert "Not checked: that the passage says what the answer says it does" in said
     marked = verify.annotate(answer, list(found.values()))
     assert 'title="Checked by code' in marked and 'title="This passage is in dissenting' in marked
+
+
+def test_a_list_of_sections_answers_for_every_section_in_it(corpus):
+    answer = "Criminal Code ss 265, 266 apply."
+    first, second = f"{CODE} s 265", f"{CODE} s 266"
+    read_first = _check(corpus, answer, [first])["ss 265, 266"]
+    assert read_first.status == "verified"
+    assert read_first.badges == ["not read in context"]
+    assert _check(corpus, answer, [first, second])["ss 265, 266"].badges == []
+
+
+def test_a_list_with_a_section_not_held_is_not_verified(corpus):
+    citation = _check(corpus, "Criminal Code ss 265, 999 apply.", [f"{CODE} s 265"])["ss 265, 999"]
+    assert citation.status == "unverified"
+    assert citation.badges == ["not in the corpus"]

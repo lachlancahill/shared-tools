@@ -414,10 +414,20 @@ _CHAPTER_PATTERN = re.compile(
 
 # "s. 7", "ss. 91 and 92", "section 91(2)", "s. 265(1)(a)", "s. 92A", "ss. 175.1 to 177".
 _SECTION_NUMBER = r"\d+(?:\.\d+)*[A-Z]?(?:\s?\(\s?[0-9a-zA-Z.]{1,6}\s?\))*"
+# After a singular "s" or "r", a comma and a number before an ordinary word is prose,
+# not a list: "s 19, 12 jurors", "r 9.11, 20 working days". The plural marker promises
+# a list, so "ss 90, 92 apply" keeps its second number; a singular list that carries on
+# ("s 7, 15 and 28", "s 7, 15 of the Charter") still counts. Only for a marker that did
+# not capture `many`. The first lookahead stops the number shrinking to dodge the check.
+_NOT_PROSE_AFTER_SINGULAR = r"(?(many)|(?!\.?\d)(?!\s+(?!(?:and|or|to|of|in|under)\b)[a-z]))"
 _SECTION_PATTERN = re.compile(
-    r"\b(?:ss?\.|[Ss]ections?|[Ss]ubsections?|ss?(?=\s\d))\s*(?P<list>"
+    r"\b(?:(?P<many>ss\.|[Ss]ections|[Ss]ubsections|ss(?=\s\d))"
+    r"|s\.|[Ss]ection|[Ss]ubsection|s(?=\s\d))\s*(?P<list>"
     + _SECTION_NUMBER
-    + r"(?:\s*(?:,|and|or|to|-|–)\s*(?!(?:19|20)\d{2}\b)"
+    + r"(?:\s*,\s*(?!(?:19|20)\d{2}\b)"
+    + _SECTION_NUMBER
+    + _NOT_PROSE_AFTER_SINGULAR
+    + r"|\s*(?:and|or|to|-|–)\s*(?!(?:19|20)\d{2}\b)"
     + _SECTION_NUMBER
     + r")*)"
 )
@@ -802,9 +812,12 @@ def find_model_code_references(text: str) -> list[ProvisionReference]:
 # hyphen is a range ("rr 5.17-5.20"), which keeps only its two ends.
 _RULE_NUMBER = r"\d+(?:\.\d+)*[A-Z]?(?:\s?\(\s?[0-9a-zA-Z.]{1,6}\s?\))*"
 _RULE_PATTERN = re.compile(
-    r"\b(?:rr?\.?|[Rr]ules?)\s+(?!\d{4}\b)(?P<list>"
+    r"\b(?:(?P<many>rr\.?|[Rr]ules)|r\.?|[Rr]ule)\s+(?!\d{4}\b)(?P<list>"
     + _RULE_NUMBER
-    + r"(?:\s*(?:,|and|or|to|-|–)\s*(?!\d{4}\b)"
+    + r"(?:\s*,\s*(?!\d{4}\b)"
+    + _RULE_NUMBER
+    + _NOT_PROSE_AFTER_SINGULAR
+    + r"|\s*(?:and|or|to|-|–)\s*(?!\d{4}\b)"
     + _RULE_NUMBER
     + r")*)"
 )

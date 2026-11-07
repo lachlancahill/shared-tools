@@ -13,6 +13,8 @@ NZBORA = "New Zealand Bill of Rights Act 1990"
 HIGH_COURT_RULES = "High Court Rules 2016"
 DISTRICT_COURT_RULES = "District Court Rules 2014"
 CONDUCT_RULES = "Lawyers and Conveyancers Act (Lawyers: Conduct and Client Care) Rules 2008"
+EVIDENCE_ACT = "Evidence Act 2006"
+CRIMINAL_PROCEDURE_ACT = "Criminal Procedure Act 2011"
 
 # Secondary legislation searched by default (research/0036). Other instruments stay
 # Tier B: there are thousands of them and older decisions cite them, but a litigation
@@ -41,6 +43,19 @@ NZ_STATUTE_NAMES: dict[str, str] = {
     "RCCC": CONDUCT_RULES,
 }
 
+# Short forms for reading answers and tool arguments, never judgments, so the graph
+# build must keep using `NZ_STATUTE_NAMES`. In a judgment "EA" is often an anonymised
+# party (*EA v Rennie Cox*) and "CPA" can be CPA Australia or another Act, each defined
+# only inside that judgment. An answer follows the nz-law skill, which gives these two
+# their meaning and tells the model to write any other Act's name out in full.
+NZ_ANSWER_STATUTE_NAMES: dict[str, str] = {
+    **NZ_STATUTE_NAMES,
+    "EA": EVIDENCE_ACT,
+    "EA 2006": EVIDENCE_ACT,
+    "CPA": CRIMINAL_PROCEDURE_ACT,
+    "CPA 2011": CRIMINAL_PROCEDURE_ACT,
+}
+
 _YEAR_SUFFIX = re.compile(r"\s+\d{4}$")
 
 # A citation key is New Zealand's if it is an NZ report, an NZ neutral citation, or
@@ -67,3 +82,26 @@ def year_less_names(in_force_titles: list[str]) -> list[tuple[str, str]]:
         if short != title:
             owners.setdefault(short, set()).add(title)
     return [(next(iter(ids)), short) for short, ids in owners.items() if len(ids) == 1]
+
+
+def newest_act_names(in_force_titles: list[str], all_titles: list[str]) -> list[tuple[str, str]]:
+    """
+    "Evidence Act" for "Evidence Act 2006": what a year-less name means in an answer,
+    which is written about the law today. Returns (statute id, short name) pairs.
+
+    It means the newest Act of that name, and only if that Act is in force. Comparing
+    `year_less_names`' way fails here, because the corpus's in-force list holds Acts
+    with no recorded repeal ("Evidence Act 1905", "Arms Act 1846"), which makes current
+    Acts look like they share their name. Checking the newest against every title keeps
+    "Education Act" unresolved: its newest, the 1989 Act, is repealed, and without that
+    check the name would fall to the 1914 Act, which only looks in force.
+    """
+    in_force = set(in_force_titles)
+    newest: dict[str, tuple[str, str]] = {}
+    for title in all_titles:
+        short = _YEAR_SUFFIX.sub("", title)
+        if short != title:
+            year = title[-4:]
+            if short not in newest or year > newest[short][0]:
+                newest[short] = (year, title)
+    return [(title, short) for short, (_, title) in newest.items() if title in in_force]

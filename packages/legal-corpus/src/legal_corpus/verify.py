@@ -307,10 +307,16 @@ def _check_in(
     units = corpus.units_by_id(_unit_ids(citations, explicit + candidates + model_code + rules))
     # A section given a statute by inference counts only if that statute has it.
     inherited = [ref for ref in candidates if _provision_id(ref) in units]
+    # "ss 90, 92" is one citation over one span, and answers for every section in it.
+    listed: dict[tuple[str, int, int], Citation] = {}
     for ref in explicit + inherited + model_code + rules:
-        if any(c.start <= ref.start < c.end for c in citations):
-            continue
-        citations.append(_check_provision(ref, units, read_ids, corpus.profile.link_prefix))
+        checked = _check_provision(ref, units, read_ids, corpus.profile.link_prefix)
+        listing = (ref.statute, ref.start, ref.end)
+        if listing in listed:
+            _add_to_listing(listed[listing], checked, ref.section)
+        elif not any(c.start <= ref.start < c.end for c in citations):
+            listed[listing] = checked
+            citations.append(checked)
 
     _check_units(corpus, citations, read_ids, units)
 
@@ -626,6 +632,19 @@ def _check_provision(
     if is_revoked_rule(unit["text"]):
         citation.badges.append("revoked")
     return citation
+
+
+def _add_to_listing(citation: Citation, other: Citation, section: str) -> None:
+    """
+    Fold another section of a list into its citation, so the mark shows the worst of
+    them: a list whose second section was never read must not look read.
+    """
+    if citation.target == other.target:
+        return  # "s 9(1)" and "s 9(2)" are one unit
+    citation.name += f", {section}"
+    if other.status == "unverified":
+        citation.status = "unverified"
+    citation.badges += [b for b in other.badges if b not in citation.badges]
 
 
 def _check_units(
