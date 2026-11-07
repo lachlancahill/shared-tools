@@ -23,8 +23,9 @@ another wording might work. The skill prose covered how to search but not when t
 - The skill also asks for a provision to be quoted as a nested Markdown list, because
   the stored text is flat (legal-assistant's `ingest_nz.legislation._render`).
 
-Local and unpublished. **The prose is instructions to a model, and its effect has not
-been measured:** repeat the prompt on testing once this is pinned.
+Published in `febd5ee`, then carried forward in `b0aa1a5`. **The prose is instructions
+to a model, and its effect has not been measured:** repeat the prompt on testing once
+the consumer pin is deployed. The 06:05 UTC smoke test still used `de97f16`.
 
 ## Not addressed
 A bare `r 138` still falls through to a case-name match on the digits (three unrelated
