@@ -43,7 +43,8 @@ the version it holds; it is not a guarantee of the law as at today's date.
   default search. Check the reader's version note.
 - `nz_read` and `nz_cases_citing_provision` accept `HCR r 5.17`, `DCR r 5.17`, or
   a bare `r 5.17` (the High Court Rules). Name any other instrument explicitly,
-  especially the conduct rules, whose numbering overlaps the court rules.
+  especially the conduct rules, whose numbering overlaps the court rules; use
+  `RCCC r 13.1` for the Conduct and Client Care Rules 2008.
 - Every current HCR rule is numbered part.rule. An undotted number such as r 138 is
   from before 2016. The earlier rules are not held, and an old number does not tell
   you the current one: say so, then find the current rule by its subject.

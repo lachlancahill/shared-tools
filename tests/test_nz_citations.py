@@ -145,6 +145,9 @@ def test_year_less_name_needs_exactly_one_act_in_force():
         ("HCR rr 5.17 and 136", HIGH_COURT_RULES, ["5.17", "136"]),
         ("r 5.17 of the High Court Rules 2016", HIGH_COURT_RULES, ["5.17"]),
         ("DCR r 5.17", DISTRICT_COURT_RULES, ["5.17"]),
+        ("Lawyers: Conduct and Client Care Rules 2008 r 13.1", CONDUCT_RULES, ["13.1"]),
+        ("Conduct and Client Care Rules 2008 r 8.7", CONDUCT_RULES, ["8.7"]),
+        ("The conduct rule 8.7 applies.", CONDUCT_RULES, ["8.7"]),
         ("rr 5.17–5.20", HIGH_COURT_RULES, ["5.17", "5.20"]),
         (
             "r 13.2 of the Conduct and Client Care Rules",

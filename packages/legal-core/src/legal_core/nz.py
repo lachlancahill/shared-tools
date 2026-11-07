@@ -35,7 +35,9 @@ NZ_STATUTE_NAMES: dict[str, str] = {
     "DCR": DISTRICT_COURT_RULES,
     # The conduct rules are cited short in professional-responsibility writing.
     "Conduct and Client Care Rules": CONDUCT_RULES,
+    "Conduct and Client Care Rules 2008": CONDUCT_RULES,
     "Lawyers: Conduct and Client Care Rules": CONDUCT_RULES,
+    "Lawyers: Conduct and Client Care Rules 2008": CONDUCT_RULES,
     "RCCC": CONDUCT_RULES,
 }
 

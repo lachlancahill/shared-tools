@@ -569,6 +569,16 @@ class StatuteNames:
             k: next(iter(ids)) for k, ids in ids_by_chapter.items() if len(ids) == 1
         }
         self._lengths = sorted({len(n) for n in self._by_name}, reverse=True)
+        rule_names = sorted(
+            (name for name, statute in self._by_name.items() if names_rules(statute)),
+            key=len,
+            reverse=True,
+        )
+        self._rule_names = (
+            re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, rule_names)) + r")(?!\w)")
+            if rule_names
+            else None
+        )
 
     def id_for(self, name: str) -> str:
         return self._by_name[name]
@@ -643,6 +653,16 @@ class StatuteNames:
                 found.append((word.start(), named[0]))
                 covered = named[1]
         return found
+
+    def rules_in(self, text: str) -> set[str]:
+        """Named rules instruments, for document-level ingest context.
+
+        Match only rule names rather than testing every statute title at every
+        capitalised word across millions of judgment paragraphs.
+        """
+        if self._rule_names is None:
+            return set()
+        return {self._by_name[match[0]] for match in self._rule_names.finditer(text)}
 
     def name_before(self, text: str, position: int) -> str | None:
         """
@@ -796,6 +816,9 @@ _DEFAULT_RULE_NUMBER = re.compile(r"\d+\.\d+[A-Z]?(?:\(|$)")
 # Listing Rules", "Supreme Court Rules 2009 (UK), r 15". "of the Rules" names nothing.
 _NAMES_OTHER_AFTER = re.compile(r"\s*of\s+(?:[Tt]he\s+)?(?:then\s+)?(?!Rules\b)[A-Z]")
 _NAMES_OTHER_BEFORE = re.compile(r"[A-Z(]\S*\s+Rules(?:\s+\d{4})?(?:\s+\(\w+\))?,?\s*$")
+# "conduct rule 8.7" explicitly excludes the High Court Rules even without the
+# official instrument title. Keep its source separate from the interactive default.
+_CONDUCT_BEFORE = re.compile(r"\bconduct\s+$", re.I)
 
 
 def _names_other_rules(text: str, start: int, end: int) -> bool:
@@ -840,6 +863,8 @@ def find_rule_references(
         else:
             statute = names.name_before(text, match.start())
             end = match.end()
+            if statute is None and _CONDUCT_BEFORE.search(text[: match.start()]):
+                statute = names.lookup("RCCC")
             if statute is None and not _names_other_rules(text, match.start(), match.end()):
                 statute = default
                 sections = [s for s in sections if _DEFAULT_RULE_NUMBER.match(s)]
