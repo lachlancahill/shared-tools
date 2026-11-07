@@ -21,3 +21,8 @@ instruments' numbering unchanged, including undotted conduct rules. Three
 regressions cover an explicit name before/after the number and a mixed list.
 This fix is local and requires a new consumer pin/build; it does not rewrite an
 already-published graph. No source text or real judgment fixture was added.
+
+## Later
+Filtering inside the finder hid these references from the checker too. See
+[the follow-up](2026-11-07-checker-missed-old-hcr-rules.md), which moves the filter
+to the graph build.

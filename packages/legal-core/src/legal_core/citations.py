@@ -23,8 +23,6 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from legal_core.nz import HIGH_COURT_RULES
-
 # --- Normalisation ---------------------------------------------------------
 
 # A2AJ's text keeps a space where italics used to end ("Constitution Act, 1867 ,
@@ -790,9 +788,9 @@ _RULE_PATTERN = re.compile(
     + _RULE_NUMBER
     + r")*)"
 )
-# Every High Court rule is numbered part.rule, so "r 43" (the 1985 numbering, or
+# Every High Court rule is numbered part.rule, so a bare "r 43" (the 1985 numbering, or
 # the Court of Appeal's rules) or "r 13.5.3" (the conduct rules) cannot be one.
-_HCR_RULE_NUMBER = re.compile(r"\d+\.\d+[A-Z]?(?:\(|$)")
+_DEFAULT_RULE_NUMBER = re.compile(r"\d+\.\d+[A-Z]?(?:\(|$)")
 # A rule that names an instrument we could not resolve is that instrument's, not the
 # default's: "r 36.15 of the Criminal Procedure Rules 2015 (UK)", "r 5.1 of the then NZX
 # Listing Rules", "Supreme Court Rules 2009 (UK), r 15". "of the Rules" names nothing.
@@ -819,10 +817,13 @@ def find_rule_references(
     before). When `default` is given, a bare "r 5.17" is a reference to that
     instrument's rules; New Zealand's held courts read a bare "r" as the High Court
     Rules (research/0036). Without it a bare rule is skipped, because a guess would
-    be a false edge. The current High Court Rules take only part.rule numbers,
-    even when explicitly named: older judgments name "High Court Rules" too, but
-    their undotted numbers cannot belong to the 2016 instrument. Bare references
-    still leave the odd plan or listing rule that shares the current shape.
+    be a false edge. The default takes only a part.rule number beside no other name,
+    which still leaves the odd plan or listing rule that shares the shape.
+
+    A named reference is always returned, even with a number its instrument cannot
+    have ("r 138 of the High Court Rules"). The citation checker relies on that: it
+    must say such a citation is not in the corpus, not fail to see it. A consumer
+    building a graph of real links has to drop those numbers itself.
 
     The number shape is New Zealand's. The Model Code's hyphenated rules have their
     own finder, and a match that overlaps one of those is left out.
@@ -841,11 +842,10 @@ def find_rule_references(
             end = match.end()
             if statute is None and not _names_other_rules(text, match.start(), match.end()):
                 statute = default
+                sections = [s for s in sections if _DEFAULT_RULE_NUMBER.match(s)]
         # "r 5.17" belongs to an instrument whose title says it is rules; a name
         # before it may be an Act the paragraph is also discussing.
         if statute is None or not names_rules(statute):
             continue
-        if statute == HIGH_COURT_RULES:
-            sections = [s for s in sections if _HCR_RULE_NUMBER.match(s)]
         found.extend(ProvisionReference(statute, s, match.start(), end) for s in sections)
     return found

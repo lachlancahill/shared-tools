@@ -138,11 +138,11 @@ def test_year_less_name_needs_exactly_one_act_in_force():
         ("rule 5.17", HIGH_COURT_RULES, ["5.17"]),
         ("HCR r 5.17", HIGH_COURT_RULES, ["5.17"]),
         ("High Court Rules 2016, r 5.17", HIGH_COURT_RULES, ["5.17"]),
-        # Naming the current instrument cannot turn its predecessor's number
-        # into a current rule: the published-corpus audit found this bypass.
-        ("High Court Rules, r 136", None, []),
-        ("r 187(3)(a) of the High Court Rules", None, []),
-        ("HCR rr 5.17 and 136", HIGH_COURT_RULES, ["5.17"]),
+        # A named rule is returned even if the instrument has no such number, so
+        # that the checker can flag it; the graph drops these numbers itself.
+        ("High Court Rules, r 136", HIGH_COURT_RULES, ["136"]),
+        ("r 187(3)(a) of the High Court Rules", HIGH_COURT_RULES, ["187(3)(a)"]),
+        ("HCR rr 5.17 and 136", HIGH_COURT_RULES, ["5.17", "136"]),
         ("r 5.17 of the High Court Rules 2016", HIGH_COURT_RULES, ["5.17"]),
         ("DCR r 5.17", DISTRICT_COURT_RULES, ["5.17"]),
         ("rr 5.17–5.20", HIGH_COURT_RULES, ["5.17", "5.20"]),

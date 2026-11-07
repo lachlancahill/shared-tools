@@ -1,7 +1,7 @@
 # 0002 — Shared NZ research instructions and tool contracts
 
 - Date: 2026-11-07
-- Status: accepted; local development, not published
+- Status: accepted; published in `29f3326`
 
 ## Context
 The reader is published, but chat still needs NZ-only research instructions and

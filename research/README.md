@@ -8,4 +8,5 @@ with the consumer; this index covers the reusable boundary.
 
 ## Debug notes
 
-- [2026-11-07 — Explicit HCR numbers](debug/2026-11-07-explicit-hcr-numbers.md) — Named current High Court Rules must pass the same numbering check as bare rules, so old undotted references cannot bypass it; fix is local, not yet published.
+- [2026-11-07 — The number filter hid old rules from the checker](debug/2026-11-07-checker-missed-old-hcr-rules.md) — `r 138 of the High Court Rules` produced no citation at `29f3326`; the finder must keep named references so the checker can flag them, and the graph drops impossible numbers. Local, unpublished.
+- [2026-11-07 — Explicit HCR numbers](debug/2026-11-07-explicit-hcr-numbers.md) — Named current High Court Rules must pass the same numbering check as bare rules, so old undotted references cannot bypass it; published in `29f3326`, and its placement is corrected by the note below.

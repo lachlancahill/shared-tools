@@ -1,5 +1,6 @@
 """NZ-only and mixed-corpus checks using invented NZ text, not published judgments."""
 
+import pytest
 from conftest import NZ_CASE, OAKES
 from legal_core.nz import HIGH_COURT_RULES
 from legal_corpus import reader, search, verify
@@ -13,6 +14,21 @@ def test_nz_can_be_the_primary_corpus_and_short_forms_keep_their_pinpoints(nz_co
     checked = verify.verify(nz_corpus, answer, set(read.unit_ids))
     assert len(checked) == 2
     assert all(c.status == "verified" and not c.badges for c in checked)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "The rule is r 138 of the High Court Rules.",
+        "See High Court Rules 2016, r 138.",
+        "See HCR r 138.",
+        "See s 138 of the High Court Rules.",
+    ],
+)
+def test_a_named_rule_the_instrument_cannot_have_is_flagged_not_missed(nz_corpus, answer):
+    """A model repeating old numbering must see a warning, not a clean answer."""
+    checked = verify.verify(nz_corpus, answer, set())
+    assert [(c.status, c.badges) for c in checked] == [("unverified", ["not in the corpus"])]
 
 
 def test_mixed_corpora_remain_distinct_and_revoked_rules_are_badged(corpus, nz_corpus):
