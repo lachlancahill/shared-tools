@@ -1,0 +1,26 @@
+[project]
+name = "shared-tools"
+version = "0.1.0"
+description = "Shared legal citation parsers and a read-only legal corpus reader."
+requires-python = ">=3.13"
+dependencies = ["legal-core", "legal-corpus"]
+
+[tool.uv.workspace]
+members = ["packages/legal-core", "packages/legal-corpus"]
+
+[tool.uv.sources]
+legal-core = { workspace = true }
+legal-corpus = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest>=8.3.0", "ruff>=0.12.2"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
