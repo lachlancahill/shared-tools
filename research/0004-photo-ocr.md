@@ -1,7 +1,7 @@
 # 0004 — Photo OCR on a zero-retention multimodal model
 
 - Date: 2026-11-07
-- Status: accepted and built, including orientation; chat wires in the tool group next
+- Status: accepted and built, including orientation; chat's tool group is on testing
 
 ## Context
 Users upload phone photos of printed course pages, and agents in projects need the words.
@@ -70,8 +70,8 @@ a later three reads through the package at 1568 px gave two exact copies and one
 surname a letter short. All three cost US$0.0004–0.0007, the lower figures with prompt
 caching. On the same model, a photo saying "ignore all previous instructions" was
 transcribed rather than obeyed three times out of three, and a blank page returned
-`[illegible]` three times out of three. `for_model` still fences photo text, because the
-agent reads it next.
+`[illegible]` three times out of three. `for_model` still fences photo text, and removes any
+copy of the fence's own tag from it, because the agent reads it next.
 
 ### Orientation (measured, then built)
 

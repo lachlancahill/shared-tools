@@ -13,6 +13,7 @@ word it writes a plausible different word, so a clean-looking reading can still 
 import base64
 import io
 import logging
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -60,6 +61,10 @@ _MACHINE_READ_WARNING = (
 )
 
 
+# Matches the fence's own tag however a photo or model spells it: any case, inner spaces.
+_FENCE_TAG = re.compile(r"<\s*/?\s*photo_text\b[^>]*>", re.IGNORECASE)
+
+
 class UnreadablePhoto(ValueError):
     """The bytes are not an image Pillow can decode, so no paid call was made."""
 
@@ -84,7 +89,10 @@ class Reading:
         cut_off = (
             "\nThe reading stopped early: the end of the page is missing." if self.truncated else ""
         )
-        return f"{_MACHINE_READ_WARNING}{cut_off}\n\n<photo_text>\n{self.text}\n</photo_text>"
+        # A photo printing the closing tag must not be able to end the fence early and have
+        # the words after it read as outside the photo.
+        fenced = _FENCE_TAG.sub("[photo_text tag]", self.text)
+        return f"{_MACHINE_READ_WARNING}{cut_off}\n\n<photo_text>\n{fenced}\n</photo_text>"
 
 
 def prepare(raw: bytes) -> bytes:
