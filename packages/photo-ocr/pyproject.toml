@@ -1,0 +1,18 @@
+[project]
+name = "photo-ocr"
+version = "0.1.0"
+description = "Read text from phone photos of printed pages, plus a non-default agent tool contract."
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.27",
+    "numpy>=2",
+    "onnxruntime>=1.20",
+    "pillow>=11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/photo_ocr"]

@@ -1,13 +1,16 @@
 # shared-tools
 
-Two Python 3.13+ libraries, with no web app or model client:
+Three Python 3.13+ libraries, with no web app:
 
 - **legal-core**: dependency-free citation parsing/resolution and decision-text parsing.
 - **legal-corpus**: read-only snapshot loading, keyword/vector search, graph queries,
   reading in context, and citation/quotation checking. Depends on legal-core,
   DuckDB, LanceDB, PyArrow and NumPy. Imports these only when their modules are used.
+- **photo-ocr**: reads the text in phone photos of printed pages, and packages a
+  non-default agent tool. It is the only package that calls a model itself
+  ([research/0004](research/0004-photo-ocr.md)).
 
-The libraries were extracted from the private legal-assistant project. The code is
+The legal libraries were extracted from the private legal-assistant project. The code is
 public; **no corpus, judgment PDFs, NZLII cache or credentials are included**.
 The default profiles name a private bucket. Knowing its name grants no access.
 Consumers need their own read-only GCS role and application default credentials;
@@ -77,6 +80,25 @@ and passages were read; they flag dissent, revocation and known negative treatme
 that the corpus is complete or current.** Inspect `Citation.status` and `badges`,
 not just a count of resolved citations.
 
+## Read a photo
+
+```python
+from photo_ocr.reader import read_photo
+
+reading = read_photo(image_bytes, api_key=deepinfra_key)
+reading.for_model()  # text for an agent, with its warning; charge reading.cost_usd
+```
+
+One call costs about US$0.0007 for a full page and at most `MAX_COST_PER_PHOTO_USD`. A local
+classifier first turns a sideways or upside-down page upright; it does not fix skew, and it
+loads on the first photo rather than on import (about 80 MB of memory). Each photo then goes
+to DeepInfra on a model marked "Zero retention". `photo_ocr.skill` holds the
+instructions and `read_photo` contract, importing neither Pillow nor httpx. Offer it as an
+opt-in tool group: the consumer finds the image, enforces access and limits calls.
+
+**A reading can hold plausible wrong words with no sign of them.** It is not a verified
+transcription; keep `for_model`'s warning in front of any agent that uses it.
+
 ## Consume from Git
 
 `legal_corpus.nz_skill` packages NZ-only research instructions (`prose()`) and
@@ -90,4 +112,6 @@ with `subdirectory = "packages/legal-core"` / `"packages/legal-corpus"`. During
 development, uv editable path sources can point at this checkout. Do not deploy a
 consumer lock that still names a path outside its Docker build context.
 
-No licence has been selected yet; public visibility is not a licence grant.
+No licence has been selected yet; public visibility is not a licence grant. The exception is
+the bundled classifier in `packages/photo-ocr/src/photo_ocr/models/`, which is Apache-2.0 and
+keeps its own licence beside it.

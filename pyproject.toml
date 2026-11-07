@@ -1,16 +1,17 @@
 [project]
 name = "shared-tools"
 version = "0.1.0"
-description = "Shared legal citation parsers and a read-only legal corpus reader."
+description = "Shared legal citation parsers, a read-only legal corpus reader and a photo reader."
 requires-python = ">=3.13"
-dependencies = ["legal-core", "legal-corpus"]
+dependencies = ["legal-core", "legal-corpus", "photo-ocr"]
 
 [tool.uv.workspace]
-members = ["packages/legal-core", "packages/legal-corpus"]
+members = ["packages/legal-core", "packages/legal-corpus", "packages/photo-ocr"]
 
 [tool.uv.sources]
 legal-core = { workspace = true }
 legal-corpus = { workspace = true }
+photo-ocr = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8.3.0", "ruff>=0.12.2"]
