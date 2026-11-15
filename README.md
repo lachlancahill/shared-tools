@@ -99,6 +99,15 @@ opt-in tool group: the consumer finds the image, enforces access and limits call
 **A reading can hold plausible wrong words with no sign of them.** It is not a verified
 transcription; keep `for_model`'s warning in front of any agent that uses it.
 
+## chatgpt-plan
+
+`chatgpt_plan.plan.Plan` sends an OpenAI Responses call to a ChatGPT subscriber's plan first
+("Sign in with ChatGPT" plan usage: the ordinary Responses API with an OAuth token) and to the
+consumer's API-key client when the plan cannot take it. The consumer passes its Firestore
+client and the path of the one document that holds the shared tokens; the package names no
+project, database or document. `chatgpt_plan.sign_in.sign_in` is the browser half, run on a
+laptop. See research/0005 for the refresh lease and what falls back.
+
 ## Consume from Git
 
 `legal_corpus.nz_skill` packages NZ-only research instructions (`prose()`) and
