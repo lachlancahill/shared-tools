@@ -29,7 +29,10 @@ Protocol, from developers.openai.com/siwc/token-sharing-open-source (read 2026-1
 Measured against the docs: `max_output_tokens` is *enforced*, not refused; `stream=False` is
 a 400; reasoning replayed from the API is read on the plan, but **reasoning the plan wrote is
 silently ignored by the API**, so a thread that falls back mid-way loses its earlier thinking
-without an error.
+without an error. And **the plan's prompt cache only hits for requests that share a
+`session_id` header**: without one, a repeated prompt was served from the cache on 2 of 32
+calls, with one on 11 of 12 (the API key needs no such header). So every plan call from one
+`Plan` carries the same id.
 """
 
 from __future__ import annotations
@@ -241,6 +244,10 @@ class Plan:
         self._document = database.document(document_path)
         self._cached: Credentials | None = None
         self._paused_until = 0.0
+        # One id for everything this process sends. The plan routes requests that share it
+        # to one prompt cache; measured, it works across interleaved conversations, so it
+        # does not need to be per conversation.
+        self._session_id = str(uuid.uuid4())
 
     # --- The shared document ---------------------------------------------------------------
 
@@ -364,6 +371,7 @@ class Plan:
                 base_url=RESOURCE,
                 timeout=timeout,
                 max_retries=0,  # the API key is the retry
+                default_headers={"session_id": self._session_id},
             )
             try:
                 return client.responses.create(**request), True

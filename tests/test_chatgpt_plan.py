@@ -244,6 +244,10 @@ def test_the_plan_is_asked_first_with_its_token(monkeypatch):
     assert connection.open_responses({}, api_client, 10) == ("plan stream", True)
     assert (made["api_key"], made["base_url"], made["max_retries"]) == ("plan", plan.RESOURCE, 0)
     assert api_client.responses.calls == 0
+    # Every call from one process shares a session id, or the plan's prompt cache misses.
+    session = made["default_headers"]["session_id"]
+    connection.open_responses({}, api_client, 10)
+    assert made["default_headers"]["session_id"] == session
 
 
 def test_a_sign_in_without_the_plan_scope_is_refused():

@@ -43,6 +43,14 @@ A fourth package, `chatgpt-plan` (module `chatgpt_plan`), holding the one implem
   hours and asking again is a wasted round trip. A 400 is about one request: measured, a
   model the plan does not serve (`model_not_supported`) and a string `input`. Resting on it
   let one unsupported model send every other model's calls to the key for ten minutes.
+- **Every plan call carries one `session_id` header per `Plan`.** Measured on
+  `gpt-6.1-sol`: without it a repeated 1,200 to 9,000-token prompt hit the plan's prompt
+  cache on 2 of 32 calls (the API key: 31 of 32, with no header). With it, 11 of 12, and a
+  growing thread hit on every call after the first. `prompt_cache_key` alone did nothing,
+  nor did spacing the calls. One id shared by three interleaved prompts still hit for each,
+  so the id is per process, not per conversation. A second id does not read the first's
+  cache; it warms its own. The header is what OpenAI's own Codex client sends; it is not in
+  the plan-usage docs, so it is the first thing to re-measure if caching stops.
 - **`httpx`, not `requests`**, for the token endpoint: the OpenAI SDK already brings it.
 - `requires-python` is 3.12 here, not the workspace's 3.13: one consumer runs 3.12 and
   nothing in the package needs more.
