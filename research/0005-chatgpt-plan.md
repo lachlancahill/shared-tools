@@ -39,6 +39,10 @@ A fourth package, `chatgpt-plan` (module `chatgpt_plan`), holding the one implem
 - **Only a failure before the stream starts falls back.** That is where the plan's limits
   are enforced (a 429 at admission). Mid-stream, words may already be on the reader's
   screen, and that failure is the caller's as for any provider.
+- **A 400 falls back without resting the plan.** The rest exists because a limit lasts
+  hours and asking again is a wasted round trip. A 400 is about one request: measured, a
+  model the plan does not serve (`model_not_supported`) and a string `input`. Resting on it
+  let one unsupported model send every other model's calls to the key for ten minutes.
 - **`httpx`, not `requests`**, for the token endpoint: the OpenAI SDK already brings it.
 - `requires-python` is 3.12 here, not the workspace's 3.13: one consumer runs 3.12 and
   nothing in the package needs more.
@@ -56,7 +60,8 @@ A fourth package, `chatgpt-plan` (module `chatgpt_plan`), holding the one implem
 - Consumers pin this package by git commit beside the others. It pulls `openai` and
   `google-cloud-firestore`, which every current consumer already has.
 - What the plan accepts and refuses is measured by each consumer against its own request,
-  and recorded there. Known when this was written: `stream=False` is a 400,
+  and recorded there. Known when this was written: `stream=False` is a 400, `input` must be
+  a list, not every API model is served (the refusal names the model),
   `max_output_tokens` is enforced, and reasoning written on the plan is silently ignored by
   the API key side after a fallback.
 - The sign-in replaces the tokens every consumer shares. Run it only when the connection is

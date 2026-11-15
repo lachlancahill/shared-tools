@@ -348,6 +348,10 @@ class Plan:
         arriving mid-stream (`response.failed`) is the caller's, as any provider failure is,
         because by then words may be on the reader's screen.
 
+        A refusal rests the plan (`pause`), except a 400: that is about the request, not the
+        plan. A caller that knows a request will be refused (a model the plan does not serve)
+        should not ask, because each ask is a wasted round trip.
+
         The request must stream: the plan refuses `stream=False`. `timeout` applies to
         whichever side takes the call.
         """
@@ -363,8 +367,13 @@ class Plan:
             )
             try:
                 return client.responses.create(**request), True
+            except openai.BadRequestError as error:
+                # Boundary: the plan refused *this request* (a model or a field it does not
+                # serve), which says nothing about the next one. The key takes this call and
+                # the plan is not rested.
+                logger.warning("ChatGPT plan refused a request; the API key takes it. %s", error)
             except (openai.APIStatusError, openai.APIConnectionError) as error:
                 # Boundary: whatever stopped the plan before a word was streamed, the API key
-                # can take this call.
+                # can take this call, and the ones after it for a while.
                 self.pause(error)
         return api_client.responses.create(**request, timeout=timeout), False

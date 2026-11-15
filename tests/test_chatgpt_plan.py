@@ -215,6 +215,22 @@ def test_a_plan_refusal_falls_back_to_the_key_and_rests_the_plan(monkeypatch):
     assert api_client.responses.request == {"model": "m", "timeout": 10}
 
 
+def test_a_refused_request_goes_to_the_key_without_resting_the_plan(monkeypatch):
+    """A 400 is about the request (a model the plan does not serve), not the plan."""
+    unsupported = openai.BadRequestError(
+        "model_not_supported",
+        body=None,
+        response=httpx.Response(400, request=httpx.Request("POST", plan.RESOURCE)),
+    )
+    plan_client, api_client = _Client(unsupported), _Client("api stream")
+    connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)
+
+    assert connection.open_responses({}, api_client, 10) == ("api stream", False)
+    assert connection.open_responses({}, api_client, 10) == ("api stream", False)
+    assert plan_client.responses.calls == 2
+
+
 def test_the_plan_is_asked_first_with_its_token(monkeypatch):
     connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
     made = {}
