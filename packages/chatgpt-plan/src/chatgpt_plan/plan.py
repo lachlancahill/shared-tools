@@ -83,6 +83,10 @@ LEASE_SECONDS = 60
 # call would add a refused round trip to each one for nothing.
 PAUSE_SECONDS = 600
 TOKEN_TIMEOUT_SECONDS = 30
+# Events a Responses stream opens with before the model produces anything. An error after
+# these and before anything else is a refusal, not a failure mid-answer.
+LIFECYCLE_EVENTS = frozenset({"response.created", "response.in_progress", "response.queued"})
+FAILURE_EVENTS = frozenset({"error", "response.failed"})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -350,10 +354,13 @@ class Plan:
     ) -> tuple[object, bool]:
         """Start a streamed Responses call on the plan, or on the API key when it cannot be.
 
-        Returns the event stream and whether the plan is paying. Only a refusal **before the
-        stream starts** falls back, which is where the plan's limits are enforced; one
-        arriving mid-stream (`response.failed`) is the caller's, as any provider failure is,
-        because by then words may be on the reader's screen.
+        Returns the event stream and whether the plan is paying. A refusal **before any
+        output** falls back: an error at admission, or an error that is the stream's first
+        event after the lifecycle ones. The plan's usage limit arrives the second way (an HTTP
+        200, then *"The ChatGPT user has reached their Subscription Sharing usage limit"*), so
+        the stream is read up to its first real event before it is returned, and every event
+        read is replayed to the caller. A failure *after* output is the caller's, as any
+        provider failure is, because by then words may be on the reader's screen.
 
         A refusal rests the plan (`pause`), except a 400: that is about the request, not the
         plan. A caller that knows a request will be refused (a model the plan does not serve)
@@ -374,14 +381,51 @@ class Plan:
                 default_headers={"session_id": self._session_id},
             )
             try:
-                return client.responses.create(**request), True
+                stream = client.responses.create(**request)
+                # One iterator, read from here and then handed on, so nothing is read twice.
+                # Inside the try: the SDK raises `APIError` from iteration for an error event.
+                events = iter(stream)
+                read = _read_to_first_output(events)
+                if read and read[-1].type in FAILURE_EVENTS:
+                    stream.close()
+                    raise _FailedBeforeOutput(read[-1])
+                return _replay(read, events), True
             except openai.BadRequestError as error:
                 # Boundary: the plan refused *this request* (a model or a field it does not
                 # serve), which says nothing about the next one. The key takes this call and
                 # the plan is not rested.
                 logger.warning("ChatGPT plan refused a request; the API key takes it. %s", error)
-            except (openai.APIStatusError, openai.APIConnectionError) as error:
+            except (openai.APIError, _FailedBeforeOutput) as error:
                 # Boundary: whatever stopped the plan before a word was streamed, the API key
-                # can take this call, and the ones after it for a while.
+                # can take this call, and the ones after it for a while. `APIError` covers a
+                # refused status, no connection, and an error event raised from the stream.
                 self.pause(error)
         return api_client.responses.create(**request, timeout=timeout), False
+
+
+class _FailedBeforeOutput(RuntimeError):
+    """The plan accepted the call and then failed it before producing anything."""
+
+    def __init__(self, event: object) -> None:
+        super().__init__(f"The plan's stream failed before any output: {event}")
+
+
+def _read_to_first_output(events) -> list:
+    """Read the stream's events up to and including the first that is not a lifecycle event.
+
+    That event is either the start of the answer or the plan failing the call. Every event
+    read is returned, so none is lost when the stream is handed on. A stream that ends with
+    no such event returns what it had; the caller sees an ordinary short stream.
+    """
+    read = []
+    for event in events:
+        read.append(event)
+        if event.type not in LIFECYCLE_EVENTS:
+            break
+    return read
+
+
+def _replay(read: list, events):
+    """The events already read, then the rest of the stream."""
+    yield from read
+    yield from events

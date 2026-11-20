@@ -36,9 +36,17 @@ A fourth package, `chatgpt-plan` (module `chatgpt_plan`), holding the one implem
   private attribute.
 - **Instance state, not module state**, so the tests need no patching of globals and a
   consumer could hold two connections if it ever had to.
-- **Only a failure before the stream starts falls back.** That is where the plan's limits
-  are enforced (a 429 at admission). Mid-stream, words may already be on the reader's
-  screen, and that failure is the caller's as for any provider.
+- **Only a failure before any output falls back.** Mid-stream, words may already be on the
+  reader's screen, and that failure is the caller's as for any provider. "Before any
+  output" was first read as "before the stream starts" (a 429 at admission), and that was
+  wrong: on 2026-11-20 a consumer's turns failed five times in ten minutes with *"The
+  ChatGPT user has reached their Subscription Sharing usage limit"*, which arrived as the
+  stream's first event after an HTTP 200 (the SDK raises it as `openai.APIError` from inside
+  iteration). Nothing had been shown, nothing fell back, and the plan was never rested, so
+  every retry asked it again. So `open_responses` now reads the stream up to its first
+  event that is not lifecycle (`response.created`, `in_progress`, `queued`); an error there,
+  raised or as an `error`/`response.failed` event, rests the plan and goes to the key, and
+  otherwise every event read is replayed in front of the rest.
 - **A 400 falls back without resting the plan.** The rest exists because a limit lasts
   hours and asking again is a wasted round trip. A 400 is about one request: measured, a
   model the plan does not serve (`model_not_supported`) and a string `input`. Resting on it

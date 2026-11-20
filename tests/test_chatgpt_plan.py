@@ -199,6 +199,41 @@ class _Client:
         self.responses = _Responses(outcome)
 
 
+class _Event:
+    def __init__(self, type):
+        self.type = type
+
+
+class _Stream:
+    """A Responses event stream: events in order, an exception raised where the SDK would."""
+
+    def __init__(self, *items):
+        self.closed = False
+        self._iterator = self._events(items)
+
+    def _events(self, items):
+        for item in items:
+            if isinstance(item, Exception):
+                raise item
+            yield item
+
+    def __iter__(self):
+        # As the SDK's `Stream`: every iteration continues the one underlying stream.
+        return self._iterator
+
+    def close(self):
+        self.closed = True
+
+
+def _usage_limit():
+    # The shape of the 20 Nov failure: the SDK raises this from inside iteration.
+    return openai.APIError(
+        "The ChatGPT user has reached their Subscription Sharing usage limit",
+        request=httpx.Request("POST", plan.RESOURCE),
+        body=None,
+    )
+
+
 def test_a_plan_refusal_falls_back_to_the_key_and_rests_the_plan(monkeypatch):
     over_limit = openai.RateLimitError(
         "subscription_sharing_usage_limit_exceeded",
@@ -237,11 +272,12 @@ def test_the_plan_is_asked_first_with_its_token(monkeypatch):
 
     def client(**kwargs):
         made.update(kwargs)
-        return _Client("plan stream")
+        return _Client(_Stream(_Event("response.created")))
 
     monkeypatch.setattr(openai, "OpenAI", client)
     api_client = _Client("api stream")
-    assert connection.open_responses({}, api_client, 10) == ("plan stream", True)
+    stream, on_plan = connection.open_responses({}, api_client, 10)
+    assert on_plan and [event.type for event in stream] == ["response.created"]
     assert (made["api_key"], made["base_url"], made["max_retries"]) == ("plan", plan.RESOURCE, 0)
     assert api_client.responses.calls == 0
     # Every call from one process shares a session id, or the plan's prompt cache misses.
@@ -254,3 +290,59 @@ def test_a_sign_in_without_the_plan_scope_is_refused():
     body = {"scope": "openid profile", "access_token": "a", "refresh_token": "r", "id_token": "i"}
     with pytest.raises(plan.Refused):
         plan._credentials("urn:uuid:host", "oaiapp_x", body, time.time())
+
+
+def test_a_usage_limit_as_the_first_event_falls_back_and_rests_the_plan(monkeypatch):
+    """The limit arrives after the HTTP 200, as the stream's first event (research/0005)."""
+    plan_client = _Client(_Stream(_Event("response.created"), _usage_limit()))
+    api_client = _Client("api stream")
+    connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)
+
+    assert connection.open_responses({"model": "m"}, api_client, 10) == ("api stream", False)
+    assert connection.open_responses({"model": "m"}, api_client, 10) == ("api stream", False)
+    assert (plan_client.responses.calls, api_client.responses.calls) == (1, 2)
+
+
+def test_a_failed_event_before_output_falls_back(monkeypatch):
+    failed = _Stream(_Event("response.created"), _Event("response.failed"))
+    plan_client, api_client = _Client(failed), _Client("api stream")
+    connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)
+
+    assert connection.open_responses({}, api_client, 10) == ("api stream", False)
+    assert failed.closed
+
+
+def test_a_failure_after_output_is_the_callers(monkeypatch):
+    """Words may be on screen by then, so the key must not start the answer again."""
+    started = (_Event("response.created"), _Event("response.output_text.delta"))
+    stream = _Stream(*started, _usage_limit())
+    plan_client, api_client = _Client(stream), _Client("api stream")
+    connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)
+
+    events, on_plan = connection.open_responses({}, api_client, 10)
+    assert on_plan
+    read = []
+    with pytest.raises(openai.APIError):
+        for event in events:
+            read.append(event.type)
+    assert read == ["response.created", "response.output_text.delta"]
+    assert api_client.responses.calls == 0
+
+
+def test_a_normal_stream_yields_every_event_the_first_included(monkeypatch):
+    types = [
+        "response.created",
+        "response.in_progress",
+        "response.output_item.added",
+        "response.output_text.delta",
+        "response.completed",
+    ]
+    plan_client = _Client(_Stream(*[_Event(type) for type in types]))
+    connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)
+
+    events, on_plan = connection.open_responses({}, _Client("api stream"), 10)
+    assert on_plan and [event.type for event in events] == types
