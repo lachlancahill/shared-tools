@@ -1,6 +1,6 @@
 # 0006 — chat-ui: a chat page's transcript, shared
 
-- Date: 2026-11-26
+- Date: 2026-11-25
 - Status: accepted, built. Consumers: legal-assistant (its 0043) and fitness (its 0015).
   The chat app, where it came from, does not use it yet.
 
