@@ -8,6 +8,7 @@ with the consumer; this index covers the reusable boundary.
 - [0003 — NZ source identity](0003-nz-source-identity.md) — Extract HTML footnotes before splitting paragraphs; graph defaults follow one named instrument, not the interactive HCR assumption.
 - [0004 — Photo OCR](0004-photo-ocr.md) — GLM-5.3-Flash on a DeepInfra zero-retention model, about US$0.0007 a page, chosen by a scored comparison on one real page; failures are plausible wrong words, so readings always carry a warning. Pages are first turned upright by a bundled local classifier, loaded lazily. Non-default tool contract; chat's group is on testing.
 - [0005 — ChatGPT plan access](0005-chatgpt-plan.md) — `chatgpt-plan`: a Responses call goes to a ChatGPT plan first and the consumer's API-key client second. The consumer injects its Firestore client and document path; the refresh is leased in a transaction because a refresh spends its token; only a failure before any output falls back, which includes the usage limit arriving as the stream's first event (2026-11-20).
+- [0006 — chat-ui](0006-chat-ui.md) — `chat-ui`: a chat page's transcript as static modules (D1), served by the app (D2). D3 an app's marks are offsets from the server made into elements after sanitising, so a model cannot forge one; `verify.marks` replaces `verify.annotate`. D4 a question is plain text.
 
 ## Debug notes
 

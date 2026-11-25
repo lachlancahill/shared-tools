@@ -95,10 +95,13 @@ def test_offsets_survive_odd_spaces_in_the_original():
     assert answer[mapping[start] :].startswith("[1986]")
 
 
-def test_annotation_links_each_citation_with_its_marks(corpus):
-    answer = "See 2031 SCC 7."
-    html = verify.annotate(answer, verify.verify(corpus, answer, set()))
-    assert 'class="cite cite-unverified"' in html and "not in the corpus" in html
+def test_a_mark_says_where_its_citation_is_as_javascript_counts(corpus):
+    answer = "😀 See 2031 SCC 7."
+    [mark] = verify.marks(answer, verify.verify(corpus, answer, set()))
+    units = answer.encode("utf-16-le")[2 * mark["start"] : 2 * mark["end"]]
+    assert units.decode("utf-16-le") == "2031 SCC 7"
+    assert (mark["status"], mark["sign"]) == ("unverified", "✗")
+    assert [(b["text"], b["level"]) for b in mark["badges"]] == [("not in the corpus", "bad")]
 
 
 def test_bare_pinpoints_are_checked_against_the_case_named_before_them(corpus):
@@ -326,8 +329,9 @@ def test_the_mark_says_what_was_checked_and_what_was_not(corpus):
     assert "paragraphs 69–72 exist, and the tutor read them" in said
     assert "the quoted words are there" in said
     assert "Not checked: that the passage says what the answer says it does" in said
-    marked = verify.annotate(answer, list(found.values()))
-    assert 'title="Checked by code' in marked and 'title="This passage is in dissenting' in marked
+    [mark] = verify.marks(answer, list(found.values()))
+    assert mark["explained"] == said
+    assert [b["help"] for b in mark["badges"]][0].startswith("This passage is in dissenting")
 
 
 def test_a_list_of_sections_answers_for_every_section_in_it(corpus):

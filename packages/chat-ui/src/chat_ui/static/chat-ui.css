@@ -1,0 +1,152 @@
+/* A chat page's transcript. Everything is inside `.chat-ui`, so an app's own rules for
+   bare elements do not reach it, and unlayered for the same reason. An app sets the
+   tokens it wants on its `.chat-ui` element; the fallbacks follow `color-scheme`. */
+
+:where(.chat-ui) {
+  --cu-page: light-dark(#fdfdfe, #16181d);
+  --cu-raised: light-dark(#ffffff, #252930);
+  --cu-hover: light-dark(#e8ecf2, #2d323b);
+  --cu-bubble: light-dark(#ebeff5, #272c34);
+  --cu-code: light-dark(#f2f4f8, #1c1f26);
+  --cu-line: light-dark(#dce1e9, #343a44);
+  --cu-ink: light-dark(#171b22, #e9ebef);
+  --cu-soft: light-dark(#565e6c, #9ea6b4);
+  --cu-accent: light-dark(#1d5be0, #7aa5ff);
+  --cu-danger: light-dark(#b3261e, #ff8a80);
+  --cu-warn: light-dark(#805300, #e3b04b);
+  --cu-prose: inherit;
+  --cu-prose-size: 18px;
+  --cu-prose-line: 1.56;
+  --cu-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --cu-shadow: 0 1px 2px rgb(20 28 44 / 0.06), 0 8px 28px -8px rgb(20 28 44 / 0.2);
+}
+
+.chat-ui, .chat-ui *, .chat-ui *::before, .chat-ui *::after { box-sizing: border-box; }
+.chat-ui .sr-only { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.chat-ui [hidden] { display: none !important; }
+
+.chat-ui .icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.chat-ui .icon-button { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--cu-soft); cursor: pointer; }
+.chat-ui .icon-button:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.chat-ui .quiet-button { min-height: 36px; padding: 5px 16px; border: 0; border-radius: 18px; background: var(--cu-hover); color: var(--cu-ink); font-weight: 700; cursor: pointer; }
+.chat-ui .show-more { padding: 0; border: 0; background: none; color: var(--cu-accent); font-size: 15px; cursor: pointer; }
+
+/* --------------------------------------------------------------- transcript */
+
+/* The one scrolling element. `overflow-anchor` off because the browser's own anchoring
+   fights following the stream: it pins to a node still being written into. */
+.chat-ui .messages { flex: 1; min-height: 0; overflow-y: auto; overflow-anchor: none; container-type: size; }
+.chat-ui .turns { max-width: 752px; margin: 0 auto; padding: 8px 16px 24px; }
+.chat-ui .turn { display: flex; flex-direction: column; gap: 18px; padding-bottom: 32px; }
+/* Off screen, a turn is not laid out. */
+.chat-ui .turn:not(:last-child) { content-visibility: auto; contain-intrinsic-size: auto 700px; }
+/* The question sits at the top and its answer grows into reserved space. */
+.chat-ui .turn.live { min-height: calc(100cqh - 32px); }
+.chat-ui .message { min-width: 0; margin: 0; }
+.chat-ui .message-timeline { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.chat-ui .jump { position: absolute; top: -46px; left: 50%; display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 1px solid var(--cu-line); border-radius: 50%; background: var(--cu-raised); color: var(--cu-ink); box-shadow: var(--cu-shadow); translate: -50% 0; cursor: pointer; }
+
+/* ---------------------------------------------------------------- questions */
+
+.chat-ui .message-user { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.chat-ui .message-user .message-timeline { align-items: flex-end; max-width: 82%; }
+.chat-ui .message-user .message-content { max-width: 100%; padding: 9px 16px; border-radius: 20px; background: var(--cu-bubble); font-size: 17px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-ui .message-user .message-content.folded { max-height: 18.5em; overflow: hidden; mask-image: linear-gradient(#000 72%, transparent); }
+
+/* ------------------------------------------------------------------- answer */
+
+/* Work folded into one quiet line, in the place it happened. */
+.chat-ui .activity { margin: 0; }
+.chat-ui .activity > summary { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 3px 8px 3px 0; border-radius: 8px; color: var(--cu-soft); cursor: pointer; list-style: none; }
+.chat-ui .activity > summary::-webkit-details-marker, .chat-ui .step > summary::-webkit-details-marker { display: none; }
+.chat-ui .activity > summary:hover { color: var(--cu-ink); }
+.chat-ui .activity > summary > .icon { width: 15px; height: 15px; transition: transform 160ms; }
+.chat-ui .activity[open] > summary > .icon { transform: rotate(90deg); }
+.chat-ui .activity-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-ui .activity-problem { flex: none; color: var(--cu-warn); }
+.chat-ui .activity.busy .activity-label { background: linear-gradient(90deg, var(--cu-soft) 35%, var(--cu-ink) 50%, var(--cu-soft) 65%) 0 / 250% 100%; background-clip: text; color: transparent; animation: cu-shimmer 1.8s linear infinite; }
+@keyframes cu-shimmer { from { background-position: 100% 0; } to { background-position: -25% 0; } }
+
+.chat-ui .steps { display: grid; gap: 2px; min-width: 0; margin: 8px 0 2px 8px; border-left: 1px solid var(--cu-line); }
+.chat-ui .step { min-width: 0; margin: 0; }
+.chat-ui .step > summary { position: relative; display: flex; align-items: baseline; gap: 6px; padding: 4px 6px 4px 24px; border-radius: 8px; color: var(--cu-soft); font-size: 15px; cursor: pointer; list-style: none; }
+.chat-ui .step > summary:hover { color: var(--cu-ink); }
+.chat-ui .step > summary > .icon { position: absolute; top: 6px; left: -9px; width: 17px; height: 17px; padding: 1px; background: var(--cu-page); }
+.chat-ui .step-name { flex: none; color: var(--cu-ink); font-weight: 700; }
+.chat-ui .step-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-ui .step-status { flex: none; color: var(--cu-warn); }
+.chat-ui .step-time { flex: none; margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.chat-ui .step-body { margin: 2px 0 10px 24px; min-width: 0; }
+.chat-ui .step-body.prose { color: var(--cu-soft); font-family: inherit; font-size: 15.5px; line-height: 1.5; }
+.chat-ui .step-output { margin: 0; max-height: 320px; padding: 10px 14px; overflow: auto; border-radius: 10px; background: var(--cu-code); font-family: var(--cu-mono); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-ui .step-note { margin-top: 5px; color: var(--cu-soft); font-size: 14px; }
+
+/* Waiting with nothing to show yet, and the end of a stream of words. */
+.chat-ui .message.streaming .message-timeline:empty::before,
+.chat-ui .message.streaming .message-content:last-child:empty::before,
+.chat-ui .message.streaming .message-content:last-child > :last-child:not(.code-block, .table-scroll, ul, ol)::after { content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; background: var(--cu-accent); animation: cu-pulse 1.2s ease-in-out infinite; }
+@keyframes cu-pulse { 50% { opacity: 0.25; } }
+
+/* Under a message: always on the last turn, on hover elsewhere. */
+.chat-ui .message-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 6px; min-height: 32px; margin: 4px 0 0 -8px; opacity: 0; transition: opacity 120ms; }
+.chat-ui .message-user .message-actions { margin: -4px -4px -20px 0; min-height: 30px; }
+.chat-ui .message-actions .icon-button { width: 32px; height: 32px; }
+.chat-ui .message-actions .icon { width: 16px; height: 16px; }
+.chat-ui .turn:hover .message-assistant .message-actions, .chat-ui .message:focus-within .message-actions,
+.chat-ui .message-user:hover .message-actions, .chat-ui .turn:last-child .message-assistant .message-actions { opacity: 1; }
+.chat-ui .message.streaming .message-actions { display: none; }
+.chat-ui .message-meta { color: var(--cu-soft); font-size: 14px; }
+.chat-ui .message-stopped { margin-top: 10px; color: var(--cu-soft); font-size: 15px; }
+.chat-ui .message-error { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; padding: 11px 14px; border-radius: 14px; background: color-mix(in srgb, var(--cu-danger) 9%, transparent); }
+.chat-ui .message-error > .icon { color: var(--cu-danger); }
+.chat-ui .message-error > span { flex: 1; min-width: 200px; }
+
+/* -------------------------------------------------------------------- prose */
+
+.chat-ui .prose { min-width: 0; font-family: var(--cu-prose); font-size: var(--cu-prose-size); line-height: var(--cu-prose-line); overflow-wrap: break-word; }
+.chat-ui .prose > * { margin: 0; }
+.chat-ui .prose > * + * { margin-top: 0.85em; }
+.chat-ui .prose :is(h1, h2, h3, h4, h5, h6) { margin-top: 1.4em; font-size: 1.14em; line-height: 1.3; }
+.chat-ui .prose h1 { font-size: 1.4em; }
+.chat-ui .prose h2 { font-size: 1.25em; }
+.chat-ui .prose > :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
+.chat-ui .prose :is(ul, ol) { padding-left: 1.35em; }
+.chat-ui .prose li > :is(ul, ol) { margin: 0.2em 0 0; }
+.chat-ui .prose li + li { margin-top: 0.25em; }
+.chat-ui .prose li > p { margin: 0; }
+.chat-ui .prose li > p + p { margin-top: 0.5em; }
+.chat-ui .prose blockquote { padding-left: 16px; border-left: 3px solid var(--cu-line); color: var(--cu-soft); }
+.chat-ui .prose blockquote > * { margin: 0; }
+.chat-ui .prose blockquote > * + * { margin-top: 0.6em; }
+.chat-ui .prose hr { height: 1px; margin: 1.6em 0; border: 0; background: var(--cu-line); }
+.chat-ui .prose img { max-width: 100%; }
+.chat-ui .prose a { color: var(--cu-accent); }
+.chat-ui .prose :not(pre) > code { padding: 2px 5px; border-radius: 5px; background: var(--cu-code); font-family: var(--cu-mono); font-size: 0.86em; overflow-wrap: anywhere; }
+.chat-ui .table-scroll { overflow-x: auto; }
+.chat-ui .prose table { width: 100%; margin: 0; border-collapse: collapse; font-size: 0.92em; line-height: 1.4; }
+.chat-ui .prose th { color: var(--cu-soft); font-weight: 700; text-align: left; }
+.chat-ui .prose :is(th, td) { padding: 9px 18px 9px 0; border-bottom: 1px solid var(--cu-line); vertical-align: top; }
+.chat-ui .prose :is(th, td)[align="right"] { text-align: right; font-variant-numeric: tabular-nums; }
+.chat-ui .prose :is(th, td)[align="center"] { text-align: center; }
+.chat-ui .prose :is(th, td):last-child { padding-right: 0; }
+.chat-ui .code-block { overflow: hidden; border-radius: 14px; background: var(--cu-code); }
+.chat-ui .code-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 3px 4px 0 16px; color: var(--cu-soft); font-size: 14px; line-height: 1; }
+.chat-ui .code-head .icon { width: 16px; height: 16px; }
+.chat-ui .prose pre { margin: 0; padding: 2px 16px 14px; overflow-x: auto; border-radius: 0; background: none; font-family: var(--cu-mono); font-size: 13.5px; line-height: 1.6; }
+
+/* -------------------------------------------------------------------- touch */
+
+@media (pointer: coarse) {
+  .chat-ui .icon-button, .chat-ui .message-actions .icon-button { width: 44px; height: 44px; }
+  .chat-ui .jump { width: 44px; height: 44px; top: -54px; }
+  .chat-ui .quiet-button { min-height: 44px; border-radius: 22px; }
+  .chat-ui .activity > summary, .chat-ui .step > summary { padding-block: 9px; }
+  .chat-ui .step > summary > .icon { top: 11px; }
+  .chat-ui .message-user .message-actions { margin-bottom: -12px; }
+}
+@media (hover: none) { .chat-ui .message-actions { opacity: 1; } }
+@media (max-width: 800px) { .chat-ui .message-user .message-timeline { max-width: 88%; } }
+@media (prefers-reduced-motion: reduce) {
+  .chat-ui *, .chat-ui *::before, .chat-ui *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -41,7 +41,6 @@ counts are logged per turn: they are how we learn whether the model invents
 authority or ignores context.
 """
 
-import html
 import logging
 import re
 from collections.abc import Callable, Iterable
@@ -815,35 +814,44 @@ _BADGE_HELP = {
 }
 
 
-def annotate(answer: str, citations: list[Citation]) -> str:
+def marks(answer: str, citations: list[Citation]) -> list[dict]:
     """
-    The answer with each citation wrapped as a link into the reader, followed by
-    its marks. Inline HTML passes through the markdown renderer and DOMPurify.
+    Where each citation stands in the answer, with what to show there, as plain data:
+    the browser builds the elements, so nothing here is ever parsed as HTML and nothing
+    the model writes can look like a mark (chat-ui's marks.js).
+
+    Offsets are in UTF-16 units because that is how JavaScript indexes a string; an
+    emoji earlier in the answer would otherwise put every mark off by one.
     """
+
+    def at(offset: int) -> int:
+        return len(answer[:offset].encode("utf-16-le")) // 2
+
     out, last = [], 0
     for c in citations:
         if c.start < last:
             continue
-        out.append(answer[last : c.start])
-        title = html.escape(c.name or c.text, quote=True)
-        label = html.escape(c.text)
-        if c.link:
-            href = html.escape(c.link, quote=True)
-            out.append(f'<a class="cite cite-{c.status}" href="{href}" title="{title}">{label}</a>')
-        else:
-            out.append(f'<span class="cite cite-{c.status}" title="{title}">{label}</span>')
-        explained = html.escape(explain(c), quote=True)
         out.append(
-            f'<sup class="cite-mark cite-{c.status}" title="{explained}">{_MARK[c.status]}</sup>'
+            {
+                "start": at(c.start),
+                "end": at(c.end),
+                "name": c.name or c.text,
+                "link": c.link,
+                "status": c.status,
+                "sign": _MARK[c.status],
+                "explained": explain(c),
+                "badges": [
+                    {
+                        "text": b,
+                        "level": _BADGE_CLASS.get(b, "note"),
+                        "help": _BADGE_HELP.get(b, b),
+                    }
+                    for b in c.badges
+                ],
+            }
         )
-        out += [
-            f'<span class="badge badge-{_BADGE_CLASS.get(b, "note")}" '
-            f'title="{html.escape(_BADGE_HELP.get(b, b), quote=True)}">{html.escape(b)}</span>'
-            for b in c.badges
-        ]
         last = c.end
-    out.append(answer[last:])
-    return "".join(out)
+    return out
 
 
 def explain(c: Citation) -> str:

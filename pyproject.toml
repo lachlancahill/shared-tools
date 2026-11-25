@@ -1,12 +1,13 @@
 [project]
 name = "shared-tools"
 version = "0.1.0"
-description = "Shared legal citation parsers, a read-only legal corpus reader, a photo reader and ChatGPT plan access."
+description = "Shared legal citation parsers, a read-only legal corpus reader, a photo reader, ChatGPT plan access and a chat transcript."
 requires-python = ">=3.13"
-dependencies = ["chatgpt-plan", "legal-core", "legal-corpus", "photo-ocr"]
+dependencies = ["chat-ui", "chatgpt-plan", "legal-core", "legal-corpus", "photo-ocr"]
 
 [tool.uv.workspace]
 members = [
+    "packages/chat-ui",
     "packages/chatgpt-plan",
     "packages/legal-core",
     "packages/legal-corpus",
@@ -14,6 +15,7 @@ members = [
 ]
 
 [tool.uv.sources]
+chat-ui = { workspace = true }
 chatgpt-plan = { workspace = true }
 legal-core = { workspace = true }
 legal-corpus = { workspace = true }
@@ -21,6 +23,7 @@ photo-ocr = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8.3.0", "ruff>=0.12.2"]
+browser = ["playwright>=1.65.2"]
 
 [tool.ruff]
 line-length = 100
@@ -29,5 +32,11 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# Scripts run in the page, which read worse wrapped to Python's width.
+"tests/browser/*" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# chat-ui's tests need Playwright: run them by naming tests/browser.
+norecursedirs = ["browser", ".*", "*.egg"]

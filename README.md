@@ -1,6 +1,6 @@
 # shared-tools
 
-Three Python 3.13+ libraries, with no web app:
+Python libraries, with no web app:
 
 - **legal-core**: dependency-free citation parsing/resolution and decision-text parsing.
 - **legal-corpus**: read-only snapshot loading, keyword/vector search, graph queries,
@@ -9,6 +9,8 @@ Three Python 3.13+ libraries, with no web app:
 - **photo-ocr**: reads the text in phone photos of printed pages, and packages a
   non-default agent tool. It is the only package that calls a model itself
   ([research/0004](research/0004-photo-ocr.md)).
+- **chat-ui**: a chat page's transcript, as static ES modules and one stylesheet
+  ([research/0006](research/0006-chat-ui.md)). Python 3.12+, no dependencies.
 
 The legal libraries were extracted from the private legal-assistant project. The code is
 public; **no corpus, judgment PDFs, NZLII cache or credentials are included**.
@@ -24,6 +26,7 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run main.py  # import smoke check, no corpus load
+uv run --group browser pytest tests/browser  # chat-ui; BROWSER=webkit or firefox too
 ```
 
 Read [`research/README.md`](research/README.md) before changing the boundary.
@@ -123,4 +126,5 @@ consumer lock that still names a path outside its Docker build context.
 
 No licence has been selected yet; public visibility is not a licence grant. The exception is
 the bundled classifier in `packages/photo-ocr/src/photo_ocr/models/`, which is Apache-2.0 and
-keeps its own licence beside it.
+keeps its own licence beside it, and what chat-ui vendors, whose licences are in
+`packages/chat-ui/src/chat_ui/static/vendor/LICENSES.md`.
