@@ -292,9 +292,11 @@ def test_a_sign_in_without_the_plan_scope_is_refused():
         plan._credentials("urn:uuid:host", "oaiapp_x", body, time.time())
 
 
-def test_a_usage_limit_as_the_first_event_falls_back_and_rests_the_plan(monkeypatch):
-    """The limit arrives after the HTTP 200, as the stream's first event (research/0005)."""
-    plan_client = _Client(_Stream(_Event("response.created"), _usage_limit()))
+def test_a_usage_limit_before_the_first_words_falls_back_and_rests_the_plan(monkeypatch):
+    """The limit arrives after the HTTP 200 and after events that only announce an answer
+    (research/0005); on 2026-11-25 it came after `output_item.added`."""
+    announced = ("response.created", "response.output_item.added", "response.content_part.added")
+    plan_client = _Client(_Stream(*map(_Event, announced), _usage_limit()))
     api_client = _Client("api stream")
     connection, _ = _connection(_credentials(time.time() + 3600, token="plan"))
     monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: plan_client)

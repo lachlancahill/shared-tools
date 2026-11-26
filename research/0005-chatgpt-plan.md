@@ -43,10 +43,17 @@ A fourth package, `chatgpt-plan` (module `chatgpt_plan`), holding the one implem
   ChatGPT user has reached their Subscription Sharing usage limit"*, which arrived as the
   stream's first event after an HTTP 200 (the SDK raises it as `openai.APIError` from inside
   iteration). Nothing had been shown, nothing fell back, and the plan was never rested, so
-  every retry asked it again. So `open_responses` now reads the stream up to its first
-  event that is not lifecycle (`response.created`, `in_progress`, `queued`); an error there,
-  raised or as an `error`/`response.failed` event, rests the plan and goes to the key, and
-  otherwise every event read is replayed in front of the rest.
+  every retry asked it again. So `open_responses` reads the stream up to its **first words**
+  (the first `.delta` event: answer text, a reasoning summary or a tool call's arguments);
+  an error before then, raised or as an `error`/`response.failed` event, rests the plan and
+  goes to the key, and otherwise every event read is replayed in front of the rest.
+  The first version of this (2026-11-20) stopped at the first event that was not lifecycle
+  (`response.created`, `in_progress`, `queued`). On 2026-11-25 a turn failed with the same
+  limit after one more event: a stream announces its answer before it writes it
+  (`output_item.added`, then `content_part.added`, measured on `gpt-6.1-sol`), and the read
+  had stopped at the announcement. No consumer shows anything for an announcement, so the
+  first `.delta` is where "before any output" really ends. Waiting for it costs nothing the
+  reader can see: they see nothing until then either way.
 - **A 400 falls back without resting the plan.** The rest exists because a limit lasts
   hours and asking again is a wasted round trip. A 400 is about one request: measured, a
   model the plan does not serve (`model_not_supported`) and a string `input`. Resting on it

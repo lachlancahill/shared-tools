@@ -83,9 +83,6 @@ LEASE_SECONDS = 60
 # call would add a refused round trip to each one for nothing.
 PAUSE_SECONDS = 600
 TOKEN_TIMEOUT_SECONDS = 30
-# Events a Responses stream opens with before the model produces anything. An error after
-# these and before anything else is a refusal, not a failure mid-answer.
-LIFECYCLE_EVENTS = frozenset({"response.created", "response.in_progress", "response.queued"})
 FAILURE_EVENTS = frozenset({"error", "response.failed"})
 
 
@@ -355,12 +352,12 @@ class Plan:
         """Start a streamed Responses call on the plan, or on the API key when it cannot be.
 
         Returns the event stream and whether the plan is paying. A refusal **before any
-        output** falls back: an error at admission, or an error that is the stream's first
-        event after the lifecycle ones. The plan's usage limit arrives the second way (an HTTP
-        200, then *"The ChatGPT user has reached their Subscription Sharing usage limit"*), so
-        the stream is read up to its first real event before it is returned, and every event
-        read is replayed to the caller. A failure *after* output is the caller's, as any
-        provider failure is, because by then words may be on the reader's screen.
+        output** falls back: an error at admission, or an error in the stream before its first
+        words. The plan's usage limit arrives the second way (an HTTP 200, then *"The ChatGPT
+        user has reached their Subscription Sharing usage limit"*), so the stream is read up to
+        its first words before it is returned, and every event read is replayed to the caller.
+        A failure *after* output is the caller's, as any provider failure is, because by then
+        words may be on the reader's screen.
 
         A refusal rests the plan (`pause`), except a 400: that is about the request, not the
         plan. A caller that knows a request will be refused (a model the plan does not serve)
@@ -411,16 +408,21 @@ class _FailedBeforeOutput(RuntimeError):
 
 
 def _read_to_first_output(events) -> list:
-    """Read the stream's events up to and including the first that is not a lifecycle event.
+    """Read the stream's events up to and including its first words, or the plan failing it.
 
-    That event is either the start of the answer or the plan failing the call. Every event
-    read is returned, so none is lost when the stream is handed on. A stream that ends with
-    no such event returns what it had; the caller sees an ordinary short stream.
+    Words are a `.delta` event (answer text, a reasoning summary, a tool call's arguments).
+    Everything before one only announces what is coming (`response.created`,
+    `output_item.added`, `content_part.added` and the like), so nothing is on anyone's screen
+    yet and the API key can still take the call. Stopping at the first event that was not
+    lifecycle, as this did until 2026-11-26, missed a usage limit sent after
+    `output_item.added`. Every event read is returned, so none is lost when the stream is
+    handed on. A stream that ends with no words returns what it had; the caller sees an
+    ordinary short stream.
     """
     read = []
     for event in events:
         read.append(event)
-        if event.type not in LIFECYCLE_EVENTS:
+        if event.type.endswith(".delta") or event.type in FAILURE_EVENTS:
             break
     return read
 
