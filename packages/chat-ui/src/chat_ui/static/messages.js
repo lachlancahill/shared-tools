@@ -7,7 +7,8 @@
  *   { type: 'text' | 'thinking', text, seconds? }
  *   { type: 'tool', name, arguments, characters?, preview?, seconds?, failed? }
  *
- * A tool segment with no `characters` has no result yet.
+ * A tool segment with no `characters` has no result yet. Any other type is the app's
+ * own (a file it made, say), drawn by the function it gives for that type.
  */
 
 import { createActivity } from './activity.js';
@@ -23,8 +24,16 @@ const FOLD_LINE_CHARS = 72;
 /**
  * Everything that draws messages, for one page. `tools` and `detail` are activity.js's,
  * `breaks` markdown.js's, and `makeMark` what marks.js makes a mark of.
+ *
+ * `markdownQuestions` draws what somebody asked as markdown, for an app whose users
+ * write it (fenced code, say); otherwise a question is plain text, because a pasted
+ * passage is not markdown and would come out mangled.
+ *
+ * `segments` draws the app's own segment types: { type: (message, segment) => ... }.
+ * Each appends what it draws to `message._timeline` (which ends the run of work before
+ * it), or nothing, and is called again when a followed turn changes.
  */
-export function createMessages({ tools, detail, breaks, makeMark }) {
+export function createMessages({ tools, detail, breaks, makeMark, markdownQuestions = false, segments: own = {} }) {
   const markdown = createMarkdown({ breaks });
   const activity = createActivity({ tools, detail });
 
@@ -56,17 +65,32 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
     return body;
   }
 
-  /** What somebody asked, as they typed it: a pasted passage is not markdown. */
+  /** What somebody asked. */
   function question(text) {
     const message = shell('user', 'You');
+    message._actions.append(copyButton('Copy', () => message._typed));
+    setQuestion(message, text);
+    return message;
+  }
+
+  /** Put `text` in a question, in place of what it said: an edit, say. */
+  function setQuestion(message, text) {
+    message._typed = text;
+    message._timeline.replaceChildren();
+    message.querySelector('.show-more')?.remove();
+    if (!text) return;
     const body = document.createElement('div');
-    body.className = 'message-content';
-    body.textContent = text;
+    body.className = markdownQuestions ? 'message-content prose' : 'message-content';
     message._timeline.append(body);
-    message._actions.append(copyButton('Copy', () => text));
+    if (markdownQuestions) {
+      body._raw = text;
+      markdown.drawBlock(body);
+    } else {
+      body.textContent = text;
+    }
 
     const lines = text.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil(line.length / FOLD_LINE_CHARS)), 0);
-    if (lines <= FOLD_LINES) return message;
+    if (lines <= FOLD_LINES) return;
     body.classList.add('folded');
     const more = document.createElement('button');
     more.type = 'button';
@@ -79,7 +103,6 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
       more.setAttribute('aria-expanded', String(!folded));
     });
     message._timeline.after(more);
-    return message;
   }
 
   /** An empty answer, being written. */
@@ -111,8 +134,14 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
     // The node that holds the changed segment may have begun with an earlier one: a
     // run of steps is one node. Everything from its start is drawn again.
     const nodes = [...message._timeline.children];
-    const from = nodes.findLastIndex((node) => Number(node.dataset.segment) <= changed);
-    const start = from === -1 ? 0 : Number(nodes[from].dataset.segment);
+    let from = nodes.findLastIndex((node) => Number(node.dataset.segment) <= changed);
+    let start = from === -1 ? 0 : Number(nodes[from].dataset.segment);
+    // What the app draws holds its one segment, so what changed after it goes after it,
+    // and a card (a dashboard, say) is not drawn again for words that follow it.
+    if (from !== -1 && nodes[from]._own && start < changed) {
+      from += 1;
+      start = changed;
+    }
     const opened = new Set();
     const key = (details) => `${details.className.split(' ')[0]}:${details.dataset.segment}`;
     for (const node of nodes.slice(Math.max(from, 0))) {
@@ -131,7 +160,14 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
 
   function drawSegments(message, segments, start) {
     segments.slice(start).forEach((segment, i) => {
-      if (segment.type === 'tool') {
+      const last = message._timeline.lastElementChild;
+      // Own properties only: a type is data, and `constructor` is not a drawer.
+      if (Object.hasOwn(own, segment.type)) {
+        message._open = null;
+        own[segment.type](message, segment);
+        if (message._timeline.lastElementChild === last) return;
+        message._timeline.lastElementChild._own = true;
+      } else if (segment.type === 'tool') {
         const step = activity.addTool(message, segment);
         if (segment.characters !== undefined) activity.finishTool(message, segment, step);
       } else if (!segment.text) {
@@ -144,6 +180,7 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
       }
       // Which segment a node began with, which is how a redraw finds it again.
       const node = message._timeline.lastElementChild;
+      if (!node) return;
       node.dataset.segment ??= start + i;
       const step = node.querySelector(':scope > .steps > .step:last-child');
       if (step) step.dataset.segment ??= start + i;
@@ -221,6 +258,7 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
 
   /** Say under an answer that it was cut short. */
   function markStopped(message) {
+    if (message.querySelector('.message-stopped')) return;
     const note = document.createElement('div');
     note.className = 'message-stopped';
     note.textContent = 'Stopped before it finished.';
@@ -232,6 +270,7 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
    * is one: { label, run }.
    */
   function showError(message, text, action) {
+    message.querySelector('.message-error')?.remove();
     const box = document.createElement('div');
     box.className = 'message-error';
     box.setAttribute('role', 'alert');
@@ -252,14 +291,18 @@ export function createMessages({ tools, detail, breaks, makeMark }) {
   return {
     draw: markdown.draw,
     question,
+    setQuestion,
     answer,
     liveAnswer,
     updateLive,
     appendText,
     appendThinking,
+    closeThinking: activity.closeThinking,
     addTool: activity.addTool,
+    noteRunning: activity.noteRunning,
     finishTool: activity.finishTool,
     settle,
+    answerText,
     mark,
     drawMarked,
     markStopped,

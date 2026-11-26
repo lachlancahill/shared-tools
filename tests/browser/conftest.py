@@ -53,6 +53,22 @@ window.ui = createMessages({
     return { around, after };
   },
 });
+// An app with markdown questions and segments of its own.
+window.app = createMessages({
+  tools: {},
+  detail: () => '',
+  breaks: true,
+  markdownQuestions: true,
+  segments: {
+    card: (message, segment) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.textContent = segment.name;
+      message._timeline.append(card);
+    },
+    check: (message, segment) => { message.dataset.checked = segment.status; },
+  },
+});
 const el = (id) => document.getElementById(id);
 window.transcript = createTranscript({ scroller: el('scroller'), turns: el('turns'), jump: el('jump') });
 """

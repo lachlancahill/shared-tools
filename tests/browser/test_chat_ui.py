@@ -35,6 +35,23 @@ def test_links_open_beside_the_chat(page):
     ) == ["_blank", "noopener noreferrer"]
 
 
+def test_code_is_coloured_and_maths_set_but_a_price_is_not(page):
+    found = page.evaluate(
+        r"""async () => {
+          const e = document.createElement('div');
+          document.getElementById('turns').append(e);
+          ui.draw(e, '```python\nx = 1\n```\n\nSo \\(x^2\\), for $5 or $10:\n\n$$\\tfrac{1}{2}$$');
+          for (let i = 0; i < 40 && e.querySelectorAll('math').length < 2; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+          }
+          return [e.querySelector('.hljs-number')?.textContent ?? null, e.querySelectorAll('math').length,
+                  e.querySelectorAll('math[display="block"]').length, e.textContent.includes('$5 or $10'),
+                  e.querySelectorAll('math [style]').length];
+        }"""
+    )
+    assert found == ["1", 2, 1, True, 0]
+
+
 def test_streamed_followed_and_stored_answers_are_the_same(page):
     html = page.evaluate(
         """async (text) => {
@@ -59,13 +76,17 @@ def test_streamed_followed_and_stored_answers_are_the_same(page):
           }
           ui.updateLive(followed, segments);
           ui.settle(followed);
+          const stored = ui.answer(segments);
+          // Code is coloured once highlight.js has loaded, after the drawing.
+          await new Promise((r) => setTimeout(r, 300));
           const clean = (m) => m.outerHTML.replace(/ data-segment="\\d+"/g, '');
-          return [live, followed, ui.answer(segments)].map(clean);
+          return [live, followed, stored].map(clean);
         }""",
         STREAMED,
     )
     assert html[0] == html[1] == html[2]
     assert "Thought and searched · 2s" in html[0] and '<a href="https://example.com"' in html[0]
+    assert '<span class="hljs-string">' in html[0]
 
 
 def test_work_is_one_line_and_says_what_went_wrong(page):
@@ -206,6 +227,40 @@ def test_a_new_question_sits_at_the_top(page):
         }"""
     )
     assert 0 <= top <= 20
+
+
+def test_an_apps_own_segments_draw_in_place_and_survive_following(page):
+    """A card the app draws ends a run of work, and a followed turn does not redraw it."""
+    found = page.evaluate(
+        """() => {
+          const read = { type: 'tool', name: 'read', arguments: {}, characters: 3, preview: 'abc' };
+          const card = { type: 'card', name: 'a.py' };
+          const all = [read, card, read, { type: 'check', status: 'ok' }, { type: 'text', text: 'Done.' }];
+          const m = app.liveAnswer();
+          transcript.addTurn(m);
+          app.updateLive(m, all.slice(0, 2));
+          const first = m.querySelector('.card');
+          app.updateLive(m, all);
+          return [[...m._timeline.children].map((n) => n.className.split(' ')[0]),
+                  m.querySelector('.card') === first, m.dataset.checked];
+        }"""
+    )
+    assert found == [["activity", "card", "activity", "message-content"], True, "ok"]
+
+
+def test_a_waiting_question_does_not_take_the_answers_room(page):
+    """And an app that wants markdown questions gets them; a plain one keeps the text."""
+    found = page.evaluate(
+        """() => {
+          const asked = transcript.addTurn(app.question('Why `x`?\\n\\n- one'));
+          transcript.addAnswer(app.liveAnswer());
+          const waiting = transcript.addTurn(ui.question('**later**'), { live: false });
+          const between = transcript.addTurn(ui.question('sooner'), { after: asked, live: false });
+          return [document.querySelector('.turn.live') === asked, asked.nextElementSibling === between,
+                  asked.querySelectorAll('code, li').length, waiting.querySelector('.message-content').textContent];
+        }"""
+    )
+    assert found == [True, True, 2, "**later**"]
 
 
 def test_frames_split_anywhere_arrive_whole(page):

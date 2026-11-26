@@ -2,7 +2,11 @@
  * Icons from the one sprite beside this file.
  */
 
-const SPRITE = new URL('icons.svg', import.meta.url).href;
+// Beside this file, unless the page names its address: an app that caches these files
+// under hashed URLs puts the sprite's in <meta name="chat-ui-icons">, since a module
+// cannot work out a hash.
+const SPRITE = document.querySelector('meta[name="chat-ui-icons"]')?.content
+  || new URL('icons.svg', import.meta.url).href;
 const SVG = 'http://www.w3.org/2000/svg';
 
 /** An icon by its name in the sprite, decorative: whatever holds it carries the label. */

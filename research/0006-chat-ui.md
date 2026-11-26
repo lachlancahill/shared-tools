@@ -1,8 +1,8 @@
 # 0006 — chat-ui: a chat page's transcript, shared
 
 - Date: 2026-11-25
-- Status: accepted, built. Consumers: legal-assistant (its 0043) and fitness (its 0015).
-  The chat app, where it came from, does not use it yet.
+- Status: accepted, built. Consumers: legal-assistant (its 0043), fitness (its 0015) and,
+  since 2026-11-26, the chat app it came from (its 0078; see D5).
 
 ## Context
 
@@ -19,7 +19,8 @@ together, with tests in three browser engines. Its 0077 weighs the ways of shari
 |---|---|---|
 | Markdown, activity lines, messages, marks, following the stream, reading frames, their CSS | ✅ | The hard parts, the same everywhere |
 | Sending, stopping, recovering, composer, sidebar | ❌ | Where the apps differ for real reasons |
-| Code highlighting, maths, file and dashboard cards, source marks | ❌ not yet | Only the chat app has them |
+| Code highlighting and maths | ✅ since D5 | Loaded on first use, so an app whose answers have neither pays nothing |
+| File and dashboard cards, source marks | ❌ hooks only (D5) | The chat app's records and routes |
 | Event names, routes, tool names | ❌ | The consumer's. It passes its tools in |
 
 ### D2 — How it is delivered
@@ -43,17 +44,41 @@ the page loads, so a model cannot write a slot either.
 
 A model can still type "✓". It is plain text with no colour, link or explanation.
 
-### D4 — A question is plain text
+### D4 — A question is plain text, unless the app says otherwise
 
 Markdown of what a person typed or pasted turns an indented passage into code. It is drawn as
-typed. The chat app draws markdown, and would need that back.
+typed by default. The chat app's people write markdown (fenced code), so `markdownQuestions`
+draws it there (D5).
+
+### D5 — What the chat app needed (2026-11-26)
+
+| Need | How | Why this way |
+|---|---|---|
+| Highlighting and maths | In `markdown.js`, highlight.js and Temml loaded on first use; their classes and MathML let through | Every app can use them; an app without code or maths never loads either |
+| Questions as markdown, and edited | `markdownQuestions`; `setQuestion(message, text)` | A policy per app, not per message |
+| Cards and a check panel in the timeline | `segments: { type: (message, segment) => … }` | The app's records and routes stay the app's. A card holds one segment, so following a turn no longer draws it again when words follow it (a dashboard reloaded) |
+| A queued question that must not take the answer's room | `addTurn(message, { after, live })`, `markLive` | Defaults as before, so legal and fitness are unchanged |
+| A note on a step still running, the page being read | `noteRunning(message, text)`; a tool's `running(detail)` | The words are the app's |
+| A step's whole result for the app | kept as `step._result` | Source marks read what each call opened |
+| Hashed URLs for a year-long cache | the app's own; `<meta name="chat-ui-icons">` names the sprite's | A module cannot work out a hash, and the default needs none |
+
+That is six options to `createMessages` (`tools`, `detail`, `breaks`, `makeMark`,
+`markdownQuestions`, `segments`), one more than the "about five" the pilot set as its stop
+line. Each is a real difference between apps; none is a mode nobody uses.
+
+The chat app took its CSS improvements here too: a running step's note in italics and the
+warning colour only for a step that failed or was interrupted, the jump button fading in,
+actions held while their menu is open, rounded images, the 44px Copy on a code block on touch
+(the 32px rule had outranked the touch rule), and padding clear of a notch. Its page was
+pixel-identical before and after in 12 screenshots (Chromium and WebKit; desktop, phone and
+touch; light and dark).
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  A["app's module: tools, detail, makeMark"] --> M["messages.js"]
-  M --> MD["markdown.js: marked, DOMPurify"] & AC["activity.js: folded work"] & MK["marks.js: slots, then elements"]
+  A["app's module: tools, detail, breaks, makeMark, markdownQuestions, segments"] --> M["messages.js"]
+  M --> MD["markdown.js: marked, DOMPurify; highlight.js, Temml on first use"] & AC["activity.js: folded work"] & MK["marks.js: slots, then elements"]
   A --> T["transcript.js: turns, following"]
   A --> E["events.js: frames"]
 ```
@@ -62,13 +87,16 @@ Serve `chat_ui.STATIC_DIR` at `/chat-ui/` with `Cache-Control: no-cache`, link `
 **before** the app's own stylesheet, put `chat-ui` on an ancestor of the transcript and of the
 composer's `.dock`, and set the `--cu-*` tokens there. `settle` before `mark`.
 
+An app whose own CSS is in cascade layers imports `chat-ui.css` into a layer of its own
+instead, above its general components (whose `.icon-button` would otherwise restyle the
+package's) and below its pages, which then add to the package without a specificity fight.
+
 ## Consequences
 
 - **Safari lost the place of a reader who had scrolled back** when a settled answer was drawn
   whole: 4 runs in 8, and 0 in 16 with a layout forced as the content is swapped
   (`transcript.js`). The test is in fitness
   (`test_reading_back_during_a_reply_is_left_alone`), whose page shows it.
-- Until the chat app uses this, its transcript and this one are two copies.
 - Needs `light-dark()` (Chrome 123, Firefox 120, Safari 17.5) for the default colours only.
-- `scripts/build_vendor.sh` builds marked and DOMPurify. They are parsers of untrusted text:
-  bump them when an advisory says so.
+- `scripts/build_vendor.sh` builds marked, DOMPurify, highlight.js (a subset of languages)
+  and Temml. All four parse untrusted text: bump them when an advisory says so.

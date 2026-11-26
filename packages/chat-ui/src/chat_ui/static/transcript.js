@@ -56,20 +56,32 @@ export function createTranscript({ scroller, turns, jump }) {
     syncJump();
   }
 
-  /** A turn holding `message`, at the end. It is the live one from now on. */
-  function addTurn(message) {
-    // The last keeps its room until another takes over, so an answer that ends short
-    // does not drop the page under the reader.
-    turns.querySelector('.turn.live')?.classList.remove('live');
-    const turn = document.createElement('section');
-    turn.className = 'turn live';
-    turn.append(message);
-    turns.append(turn);
+  /**
+   * Make `turn` the live one, or none. The last keeps its room until another takes
+   * over, so an answer that ends short does not drop the page under the reader.
+   */
+  function markLive(turn) {
+    for (const other of turns.querySelectorAll('.turn.live')) other.classList.remove('live');
+    turn?.classList.add('live');
   }
 
-  /** Put an answer under what it answers; a turn of its own if it answers nothing. */
-  function addAnswer(answer) {
-    const turn = turns.lastElementChild;
+  /**
+   * A turn holding `message`: at the end, or straight after `after`. It is the live one
+   * from now on, unless `live` is false - a question waiting its turn, say, which must
+   * not take the room the answer being written has.
+   */
+  function addTurn(message, { after = null, live = true } = {}) {
+    const turn = document.createElement('section');
+    turn.className = 'turn';
+    turn.append(message);
+    if (after) after.after(turn);
+    else turns.append(turn);
+    if (live) markLive(turn);
+    return turn;
+  }
+
+  /** Put an answer under what it answers (the last turn unless told); a turn of its own if nothing. */
+  function addAnswer(answer, turn = turns.lastElementChild) {
     if (turn) turn.append(answer);
     else addTurn(answer);
   }
@@ -157,5 +169,5 @@ export function createTranscript({ scroller, turns, jump }) {
 
   jump.addEventListener('click', pin);
 
-  return { addTurn, addAnswer, clear, pin, setStreaming, place, returnTo };
+  return { addTurn, addAnswer, markLive, clear, pin, setStreaming, place, returnTo };
 }

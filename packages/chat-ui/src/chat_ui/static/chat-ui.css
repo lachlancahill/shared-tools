@@ -14,6 +14,7 @@
   --cu-accent: light-dark(#1d5be0, #7aa5ff);
   --cu-danger: light-dark(#b3261e, #ff8a80);
   --cu-warn: light-dark(#805300, #e3b04b);
+  --cu-ok: light-dark(#17703f, #6cc795);
   --cu-prose: inherit;
   --cu-prose-size: 18px;
   --cu-prose-line: 1.56;
@@ -45,13 +46,15 @@
 .chat-ui .message { min-width: 0; margin: 0; }
 .chat-ui .message-timeline { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-.chat-ui .jump { position: absolute; top: -46px; left: 50%; display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 1px solid var(--cu-line); border-radius: 50%; background: var(--cu-raised); color: var(--cu-ink); box-shadow: var(--cu-shadow); translate: -50% 0; cursor: pointer; }
+.chat-ui .jump { position: absolute; top: -46px; left: 50%; display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 1px solid var(--cu-line); border-radius: 50%; background: var(--cu-raised); color: var(--cu-ink); box-shadow: var(--cu-shadow); translate: -50% 0; cursor: pointer; animation: cu-appear 140ms ease-out; }
+@keyframes cu-appear { from { opacity: 0; transform: translateY(4px); } }
 
 /* ---------------------------------------------------------------- questions */
 
 .chat-ui .message-user { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .chat-ui .message-user .message-timeline { align-items: flex-end; max-width: 82%; }
 .chat-ui .message-user .message-content { max-width: 100%; padding: 9px 16px; border-radius: 20px; background: var(--cu-bubble); font-size: 17px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-ui .message-user .message-content.prose { white-space: normal; }
 .chat-ui .message-user .message-content.folded { max-height: 18.5em; overflow: hidden; mask-image: linear-gradient(#000 72%, transparent); }
 
 /* ------------------------------------------------------------------- answer */
@@ -61,7 +64,7 @@
 .chat-ui .activity > summary { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 3px 8px 3px 0; border-radius: 8px; color: var(--cu-soft); cursor: pointer; list-style: none; }
 .chat-ui .activity > summary::-webkit-details-marker, .chat-ui .step > summary::-webkit-details-marker { display: none; }
 .chat-ui .activity > summary:hover { color: var(--cu-ink); }
-.chat-ui .activity > summary > .icon { width: 15px; height: 15px; transition: transform 160ms; }
+.chat-ui .activity > summary > .icon { width: 15px; height: 15px; transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .chat-ui .activity[open] > summary > .icon { transform: rotate(90deg); }
 .chat-ui .activity-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-ui .activity-problem { flex: none; color: var(--cu-warn); }
@@ -75,7 +78,9 @@
 .chat-ui .step > summary > .icon { position: absolute; top: 6px; left: -9px; width: 17px; height: 17px; padding: 1px; background: var(--cu-page); }
 .chat-ui .step-name { flex: none; color: var(--cu-ink); font-weight: 700; }
 .chat-ui .step-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chat-ui .step-status { flex: none; color: var(--cu-warn); }
+/* How a step is going: a note while it runs, a warning when it did not work. */
+.chat-ui .step-status { flex: none; font-style: italic; }
+.chat-ui :is(.step.failed, .step.interrupted) .step-status { color: var(--cu-warn); font-style: normal; }
 .chat-ui .step-time { flex: none; margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
 .chat-ui .step-body { margin: 2px 0 10px 24px; min-width: 0; }
 .chat-ui .step-body.prose { color: var(--cu-soft); font-family: inherit; font-size: 15.5px; line-height: 1.5; }
@@ -94,7 +99,8 @@
 .chat-ui .message-actions .icon-button { width: 32px; height: 32px; }
 .chat-ui .message-actions .icon { width: 16px; height: 16px; }
 .chat-ui .turn:hover .message-assistant .message-actions, .chat-ui .message:focus-within .message-actions,
-.chat-ui .message-user:hover .message-actions, .chat-ui .turn:last-child .message-assistant .message-actions { opacity: 1; }
+.chat-ui .message-user:hover .message-actions, .chat-ui .turn:last-child .message-assistant .message-actions,
+.chat-ui .message-actions:has([aria-expanded="true"]) { opacity: 1; }
 .chat-ui .message.streaming .message-actions { display: none; }
 .chat-ui .message-meta { color: var(--cu-soft); font-size: 14px; }
 .chat-ui .message-stopped { margin-top: 10px; color: var(--cu-soft); font-size: 15px; }
@@ -104,7 +110,7 @@
 
 /* -------------------------------------------------------------------- prose */
 
-.chat-ui .prose { min-width: 0; font-family: var(--cu-prose); font-size: var(--cu-prose-size); line-height: var(--cu-prose-line); overflow-wrap: break-word; }
+.chat-ui .prose { min-width: 0; font-family: var(--cu-prose); font-size: var(--cu-prose-size); line-height: var(--cu-prose-line); text-wrap: pretty; overflow-wrap: break-word; }
 .chat-ui .prose > * { margin: 0; }
 .chat-ui .prose > * + * { margin-top: 0.85em; }
 .chat-ui .prose :is(h1, h2, h3, h4, h5, h6) { margin-top: 1.4em; font-size: 1.14em; line-height: 1.3; }
@@ -120,7 +126,10 @@
 .chat-ui .prose blockquote > * { margin: 0; }
 .chat-ui .prose blockquote > * + * { margin-top: 0.6em; }
 .chat-ui .prose hr { height: 1px; margin: 1.6em 0; border: 0; background: var(--cu-line); }
-.chat-ui .prose img { max-width: 100%; }
+.chat-ui .prose img { max-width: 100%; border-radius: 14px; }
+/* Maths set by Temml: a touch larger than the words, and a wide formula scrolls. */
+.chat-ui .prose math { font-size: 1.05em; }
+.chat-ui .prose math[display="block"] { max-width: 100%; padding: 4px 0; overflow-x: auto; overflow-y: hidden; }
 .chat-ui .prose a { color: var(--cu-accent); }
 .chat-ui .prose :not(pre) > code { padding: 2px 5px; border-radius: 5px; background: var(--cu-code); font-family: var(--cu-mono); font-size: 0.86em; overflow-wrap: anywhere; }
 .chat-ui .table-scroll { overflow-x: auto; }
@@ -132,13 +141,23 @@
 .chat-ui .prose :is(th, td):last-child { padding-right: 0; }
 .chat-ui .code-block { overflow: hidden; border-radius: 14px; background: var(--cu-code); }
 .chat-ui .code-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 3px 4px 0 16px; color: var(--cu-soft); font-size: 14px; line-height: 1; }
+.chat-ui .code-head .icon-button { width: 32px; height: 32px; }
 .chat-ui .code-head .icon { width: 16px; height: 16px; }
-.chat-ui .prose pre { margin: 0; padding: 2px 16px 14px; overflow-x: auto; border-radius: 0; background: none; font-family: var(--cu-mono); font-size: 13.5px; line-height: 1.6; }
+.chat-ui .prose pre { margin: 0; padding: 2px 16px 14px; overflow-x: auto; border-radius: 0; background: none; font-family: var(--cu-mono); font-size: 13.5px; line-height: 1.6; tab-size: 4; }
+.chat-ui .prose pre code { font-size: inherit; }
+
+/* highlight.js's classes, on the tokens of a coloured code block. */
+.chat-ui .hljs-comment, .chat-ui .hljs-quote { color: var(--cu-soft); font-style: italic; }
+.chat-ui :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-literal, .hljs-meta) { color: var(--cu-accent); }
+.chat-ui :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-variable) { color: var(--cu-ok); }
+.chat-ui :is(.hljs-number, .hljs-symbol, .hljs-attr, .hljs-attribute, .hljs-variable) { color: var(--cu-warn); }
+.chat-ui .hljs-deletion { color: var(--cu-danger); }
+.chat-ui :is(.hljs-title, .hljs-name, .hljs-section) { font-weight: 700; }
 
 /* -------------------------------------------------------------------- touch */
 
 @media (pointer: coarse) {
-  .chat-ui .icon-button, .chat-ui .message-actions .icon-button { width: 44px; height: 44px; }
+  .chat-ui .icon-button, .chat-ui :is(.message-actions, .code-head) .icon-button { width: 44px; height: 44px; }
   .chat-ui .jump { width: 44px; height: 44px; top: -54px; }
   .chat-ui .quiet-button { min-height: 44px; border-radius: 22px; }
   .chat-ui .activity > summary, .chat-ui .step > summary { padding-block: 9px; }
@@ -146,7 +165,11 @@
   .chat-ui .message-user .message-actions { margin-bottom: -12px; }
 }
 @media (hover: none) { .chat-ui .message-actions { opacity: 1; } }
-@media (max-width: 800px) { .chat-ui .message-user .message-timeline { max-width: 88%; } }
+@media (max-width: 800px) {
+  .chat-ui .message-user .message-timeline { max-width: 88%; }
+  /* Clear of a notch, held sideways. */
+  .chat-ui .turns { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+}
 @media (prefers-reduced-motion: reduce) {
   .chat-ui *, .chat-ui *::before, .chat-ui *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

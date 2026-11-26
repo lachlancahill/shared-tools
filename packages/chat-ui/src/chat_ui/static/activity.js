@@ -28,11 +28,13 @@ function formatSeconds(seconds) {
 }
 
 /**
- * `tools` is what each tool is called, by name: { icon, now, done, say, as }. `now` are
- * the words while it runs, `done` the words on its step once it has, `say(n)` what `n`
- * of them add to the folded line, and `as` another tool it is counted with. A tool not
- * listed still draws, as "Used a tool". `detail(args)` is what a call is working on, in
- * a line; the arguments are the model's, and may be anything.
+ * `tools` is what each tool is called, by name: { icon, now, done, say, as, running }.
+ * `now` are the words while it runs, `done` the words on its step once it has, `say(n)`
+ * what `n` of them add to the folded line, and `as` another tool it is counted with.
+ * `running(detail)`, if given, is the folded line while it runs ("Reading example.com"),
+ * which is `now` otherwise. A tool not listed still draws, as "Used a tool".
+ * `detail(args)` is what a call is working on, in a line; the arguments are the
+ * model's, and may be anything.
  */
 export function createActivity({ tools, detail }) {
   const toolOf = (step) => (step._tool === 'thinking' ? THINKING : tools[step._tool] || UNKNOWN);
@@ -77,6 +79,7 @@ export function createActivity({ tools, detail }) {
     const line = document.createElement('span');
     line.className = 'step-detail';
     line.textContent = text;
+    step._detail = text;
     summary.append(icon(toolOf(step).icon), name, line);
     step.append(summary);
     activity.querySelector('.steps').append(step);
@@ -90,17 +93,28 @@ export function createActivity({ tools, detail }) {
     step.querySelector('.step-name').textContent = step._running ? tool.now : tool.done;
   }
 
-  function addNote(step, className, text) {
-    const note = document.createElement('span');
-    note.className = className;
-    note.textContent = text;
-    step.querySelector('summary').append(note);
+  /** A word or two on a step's line about how it is going; none takes it away. */
+  function setStatus(step, text) {
+    let status = step.querySelector('.step-status');
+    if (!text) {
+      status?.remove();
+      return;
+    }
+    if (!status) {
+      status = document.createElement('span');
+      status.className = 'step-status';
+      step.querySelector('summary').append(status);
+    }
+    status.textContent = text;
   }
 
   function setTime(step, seconds) {
     if (seconds === undefined) return;
     step._seconds = seconds;
-    addNote(step, 'step-time', formatSeconds(seconds));
+    const time = document.createElement('span');
+    time.className = 'step-time';
+    time.textContent = formatSeconds(seconds);
+    step.querySelector('summary').append(time);
   }
 
   /**
@@ -117,7 +131,8 @@ export function createActivity({ tools, detail }) {
 
     if (busy) {
       const running = steps.find((step) => step._running);
-      label.textContent = (running ? toolOf(running) : THINKING).now;
+      const tool = running ? toolOf(running) : THINKING;
+      label.textContent = tool.running ? tool.running(running._detail) : tool.now;
       return;
     }
 
@@ -185,18 +200,27 @@ export function createActivity({ tools, detail }) {
   const runningTool = (message) =>
     [...message._timeline.querySelectorAll('.step')].find((s) => s._running && s._tool !== 'thinking');
 
+  /** Say how the call still waiting is going ("starting…"), until its result lands. */
+  function noteRunning(message, text) {
+    const step = runningTool(message);
+    if (step) setStatus(step, text);
+  }
+
   /**
    * Fill in a tool's result and mark it done. `step` is passed when drawing stored
    * segments, where several calls are built at once; a live stream's result belongs to
    * the oldest unfinished one. `characters` is the whole result's length, so a preview
-   * is never mistaken for all the model read.
+   * is never mistaken for all the model read. The result is kept on the step as
+   * `_result`, for an app that reads more of it (what pages a call opened, say).
    */
-  function finishTool(message, { characters, preview, seconds, failed }, step = runningTool(message)) {
+  function finishTool(message, result, step = runningTool(message)) {
     if (!step) return;
+    const { characters, preview, seconds, failed } = result;
     step._running = false;
+    step._result = result;
     step.classList.toggle('failed', Boolean(failed));
     drawStep(step);
-    if (failed) addNote(step, 'step-status', 'failed');
+    setStatus(step, failed ? 'failed' : '');
     setTime(step, seconds);
 
     const body = document.createElement('div');
@@ -224,7 +248,7 @@ export function createActivity({ tools, detail }) {
       drawStep(step);
       if (step._tool === 'thinking') continue;
       step.classList.add('interrupted');
-      addNote(step, 'step-status', 'interrupted');
+      setStatus(step, 'interrupted');
     }
   }
 
@@ -233,5 +257,15 @@ export function createActivity({ tools, detail }) {
     for (const activity of message._timeline.querySelectorAll('.activity')) drawRun(activity);
   }
 
-  return { addThinking, drawThinkingDetail, closeThinking, addTool, finishTool, interrupt, drawRun, drawRuns };
+  return {
+    addThinking,
+    drawThinkingDetail,
+    closeThinking,
+    addTool,
+    noteRunning,
+    finishTool,
+    interrupt,
+    drawRun,
+    drawRuns,
+  };
 }

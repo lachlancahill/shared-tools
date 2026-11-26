@@ -4,6 +4,9 @@
  * Everything here may come from a language model, so it is untrusted and always
  * passes through DOMPurify. What an app adds to an answer (marks.js) goes in after
  * that, as elements, so nothing needs to be let through for it.
+ *
+ * Code is coloured and maths set, by highlight.js and Temml, each loaded on first use:
+ * most answers have neither.
  */
 
 import { copyButton } from './icons.js';
@@ -23,11 +26,15 @@ purifier.addHook('afterSanitizeAttributes', (node) => {
   node.setAttribute('rel', 'noopener noreferrer');
 });
 
+// Past this, colouring costs more than it shows.
+const MAX_HIGHLIGHT_CHARS = 30_000;
+
 // The page finds its own parts by class and id, and says by class whether a source was
-// checked. HTML written by a model keeps only a code block's language: it can neither
-// pass for a part of the page nor forge a mark. It cannot post a form, restyle the
-// page, or open the page's menus either.
-const OWN_CLASS = /^language-[\w+#-]+$/;
+// checked. HTML written by a model keeps only the classes drawing needs - a code block's
+// language, highlight.js's colours and the maths placeholder - so it can neither pass
+// for a part of the page nor forge a mark. At worst it colours a word or sets a formula.
+// It cannot post a form, restyle the page, or open the page's menus either.
+const OWN_CLASS = /^(?:language-[\w+#-]+|hljs[\w-]*|math|math-display)$/;
 purifier.addHook('uponSanitizeAttribute', (node, attribute) => {
   if (attribute.attrName !== 'class') return;
   attribute.attrValue = attribute.attrValue.split(/\s+/).filter((name) => OWN_CLASS.test(name)).join(' ');
@@ -38,6 +45,43 @@ const FORBID_ATTR = ['style', 'id', 'name', 'popover', 'popovertarget', 'popover
 
 const toFragment = (html) =>
   purifier.sanitize(html, { RETURN_DOM_FRAGMENT: true, FORBID_TAGS, FORBID_ATTR, ALLOW_DATA_ATTR: false });
+
+/* ------------------------------------------------------------------- maths */
+
+// `$$…$$`, `\[…\]` and `\(…\)`. Never single `$`: prices are everywhere. The source is
+// left as text in a placeholder, which is what shows until it is set.
+const mathElement = ({ raw, display }) => {
+  const span = document.createElement('span');
+  span.className = display ? 'math math-display' : 'math';
+  span.textContent = raw.trim();
+  return span.outerHTML;
+};
+const BLOCK_MATH = /^ {0,3}(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])[ \t]*(?:\n|$)/;
+const INLINE_MATH = /^(?:\$\$([^\n]+?)\$\$|\\\(([^\n]+?)\\\)|\\\[([^\n]+?)\\\])/;
+const MATH = [
+  {
+    name: 'mathBlock',
+    level: 'block',
+    start: (src) => src.match(/^ {0,3}(?:\$\$|\\\[)/m)?.index,
+    tokenizer(src) {
+      const match = BLOCK_MATH.exec(src);
+      return match ? { type: 'mathBlock', raw: match[0], display: true } : undefined;
+    },
+    renderer: (token) => `<p>${mathElement(token)}</p>`,
+  },
+  {
+    name: 'mathInline',
+    level: 'inline',
+    start: (src) => src.match(/\$\$|\\\(|\\\[/)?.index,
+    tokenizer(src) {
+      const match = INLINE_MATH.exec(src);
+      return match ? { type: 'mathInline', raw: match[0], display: match[2] === undefined } : undefined;
+    },
+    renderer: (token) => mathElement(token),
+  },
+];
+
+/* -------------------------------------------------------------- decoration */
 
 /** A code block gets its language and a copy button; a wide table, a scroller. */
 function decorate(root) {
@@ -61,6 +105,44 @@ function decorate(root) {
   }
 }
 
+function enrich(root) {
+  const code = [...root.querySelectorAll('pre code[class*="language-"]')].filter((c) => !c.dataset.highlighted);
+  if (code.length) highlight(code);
+  const maths = [...root.querySelectorAll('span.math')];
+  if (maths.length) typeset(maths);
+}
+
+let highlighter = null;
+async function highlight(blocks) {
+  highlighter ||= import('./vendor/highlight.min.js');
+  const { default: hljs } = await highlighter;
+  for (const code of blocks) {
+    const language = /language-([\w+#-]+)/.exec(code.className)[1];
+    if (!hljs.getLanguage(language) || code.textContent.length > MAX_HIGHLIGHT_CHARS) continue;
+    code.replaceChildren(toFragment(hljs.highlight(code.textContent, { language }).value));
+    code.dataset.highlighted = 'yes';
+  }
+}
+
+let typesetter = null;
+async function typeset(spans) {
+  typesetter ||= import('./vendor/temml.min.js');
+  const { default: temml } = await typesetter;
+  for (const span of spans) {
+    const displayMode = span.classList.contains('math-display');
+    const tex = span.textContent.replace(/^(?:\$\$|\\\[|\\\()|(?:\$\$|\\\]|\\\))$/g, '');
+    // A formula Temml cannot read stays as its source, which is at least legible.
+    const math = temml
+      .renderToString(tex, { displayMode, throwOnError: false, errorColor: 'inherit' })
+      // Nothing needs these, and parsing one is reported even where it is then dropped.
+      .replace(/ style="[^"]*"/g, '');
+    const fragment = toFragment(math);
+    if (fragment.querySelector('math')) span.replaceWith(fragment);
+  }
+}
+
+/* ----------------------------------------------------------------- drawing */
+
 /**
  * A drawer of markdown. `breaks` is whether a single newline is a line break.
  *
@@ -69,12 +151,14 @@ function decorate(root) {
  */
 export function createMarkdown({ breaks }) {
   const marked = new Marked({ breaks, gfm: true });
+  marked.use({ extensions: MATH });
 
   /** Draw `text` into `element`, whole. */
   function draw(element, text) {
     const fragment = toFragment(marked.parse(text || ''));
     decorate(fragment);
     element.replaceChildren(fragment);
+    enrich(element);
   }
 
   /** Draw a block's source whole: what it will be when it is stored. */
@@ -108,6 +192,10 @@ export function createMarkdown({ breaks }) {
       decorate(fragment);
       const nodes = [...fragment.childNodes];
       body.append(fragment);
+      // Colour and maths only once a block has ended, not on every token.
+      if (token !== tokens.at(-1)) {
+        for (const node of nodes) if (node.nodeType === Node.ELEMENT_NODE) enrich(node);
+      }
       drawn.push({ raw: token.raw, nodes });
     }
     body._drawn = drawn;
